@@ -1,0 +1,169 @@
+#:import MeshLinePlot kivy_garden.graph.MeshLinePlot
+MDNavigationLayout:
+	ScreenManager:
+		id: screen_manager
+
+		MDScreen:
+			name: 'measurescreen'
+			id: measurescreen
+			
+			MDBoxLayout:
+				orientation: 'vertical'
+
+				MDToolbar:
+					id: toolbarmeasure
+					pos_hint: {'top':1}
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+					right_action_items: [['play', lambda x: app.start()], ['stop', lambda x: app.stop()]]
+				
+				Graph:
+					id: mygraph
+					xlabel:'Time (s)'
+                    ylabel:'Voltage (V)'
+					ymin:0
+					ymax:10
+					xmax:60
+                    padding:5
+                    x_ticks_major:10
+                    x_ticks_minor:10
+                    y_ticks_major:1
+                    y_ticks_minor:10
+                    x_grid:True
+                    y_grid:True
+                    x_grid_label:True
+                    y_grid_label:True
+                    draw_border:True
+                    on_touch_down: coord_label.text = 'x:%.2f y:%.2f' %((self.to_data(args[1].pos[0], args[1].pos[1]))[0],(self.to_data(args[1].pos[0], args[1].pos[1]))[1])
+                    MDLabel:
+						id: coord_label
+						text: 'x: y:'
+						pos: (root.width -125, 10)
+				
+
+				
+
+		MDScreen:
+			name: 'regulatepsscreen'
+
+			MDToolbar:
+				id: toolbarregulateps
+				pos_hint: {'top':1}
+				elevation: 10
+				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+				right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
+
+			MDLabel:
+				text: 'Regulate PS'
+				halign: 'center'
+
+		MDScreen:
+			name: 'darkcurrentscreen'
+
+			MDToolbar:
+				id: toolbardarkcurrent
+				pos_hint: {'top':1}
+				elevation: 10
+				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+				right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
+
+			MDLabel:
+				text: 'Dark Current'
+				halign: 'center'
+
+		MDScreen:
+			name: 'settingsscreen'
+
+			MDToolbar:
+				id: toolbarsettings
+				pos_hint: {'top':1}
+				elevation: 10
+				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+
+			MDLabel:
+				text: 'Settings Screen'
+				halign: 'center'
+
+		MDScreen:
+			name: 'analyzescreen'
+
+			MDToolbar:
+				id: toolbarmetadata
+				pos_hint: {'top':1}
+				elevation: 10
+				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+				right_action_items: [['folder-search', lambda x: app.callback()]]
+
+			MDLabel:
+				text: 'Analyze'
+				halign: 'center'
+
+
+
+	MDNavigationDrawer:
+		id: nav_drawer
+
+		BoxLayout:
+			orientation: 'vertical'
+			spacing: '8dp'
+			padding: '8dp'
+
+			Image:
+				source: 'images/g33.png'
+				size_hint_y: None
+
+			MDLabel:
+				text: '  v.10.0'
+				font_style: 'Caption'
+				size_hint_y: None
+				height: self.texture_size[1]
+
+			ScrollView:
+
+				MDList:
+					OneLineIconListItem:
+						text: 'Regulate Power'
+						on_release:
+							screen_manager.current = 'regulatepsscreen'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'arrow-collapse-vertical'
+
+					OneLineIconListItem:
+						text: 'Dark Current'
+						on_release:
+							screen_manager.current = 'darkcurrentscreen'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'chart-sankey'
+
+					OneLineIconListItem:
+						text: 'Measure'
+						on_release:
+							screen_manager.current = 'measurescreen'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'chart-line'
+
+					OneLineIconListItem:
+						text: 'Settings'
+						on_release:
+							screen_manager.current = 'settingsscreen'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'cog'
+
+					OneLineIconListItem:
+						text: 'Analyze'
+						on_release:
+							screen_manager.current = 'analyzescreen'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'chart-bell-curve'
+
+					OneLineIconListItem:
+						text: 'Turn Off'
+						on_release:
+							app.stop()
+						IconLeftWidget:
+							icon: 'power'
