@@ -1,4 +1,66 @@
 #:import MeshLinePlot kivy_garden.graph.MeshLinePlot
+#:import colors kivymd.color_definitions.colors
+#:import get_color_from_hex kivy.utils.get_color_from_hex
+#:set colorch0 get_color_from_hex(colors['Gray']['300'])
+#:set colorch1 get_color_from_hex(colors['Cyan']['A200'])
+#:set colorch2 get_color_from_hex(colors['Orange']['A400'])
+#:set colorch3 get_color_from_hex(colors['Purple']['A400'])
+#:set colorch4 get_color_from_hex(colors['Teal']['A400'])
+#:set colorch5 get_color_from_hex(colors['Blue']['A400'])
+#:set colorch6 get_color_from_hex(colors['Yellow']['A200'])
+#:set colorch7 get_color_from_hex(colors['Red']['A400'])
+
+<ContentCustomSheet@BoxLayout>:
+	orientation: 'horizontal'
+	size_hint_y: None
+	height: '100dp'
+	
+	MDGridLayout:
+		cols:4
+		MDCheckbox:
+			color:colorch0
+			check:True
+		MDLabel:
+			text: 'ch0'
+			color: colorch0
+		MDCheckbox:
+			color:colorch1
+		MDLabel:
+			text: 'ch1'
+			color: colorch1
+		MDCheckbox:
+			color:colorch2
+		MDLabel:
+			text: 'ch2'
+			color: colorch2
+		MDCheckbox:
+			color:colorch3
+		MDLabel:
+			text: 'ch3'
+			color: colorch3
+		MDCheckbox:
+			color:colorch4
+		MDLabel:
+			text: 'ch4'
+			color: colorch4
+		MDCheckbox:
+			color:colorch5
+		MDLabel:
+			text: 'ch5'
+			color: colorch5
+		MDCheckbox:
+			color:colorch6
+		MDLabel:
+			text: 'ch6'
+			color: colorch6
+		MDCheckbox:
+			color:colorch7
+		MDLabel:
+			text: 'ch7'
+			color: colorch7
+			
+			
+
 MDNavigationLayout:
 	ScreenManager:
 		id: screen_manager
@@ -15,10 +77,10 @@ MDNavigationLayout:
 					pos_hint: {'top':1}
 					elevation: 10
 					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
-					right_action_items: [['play', lambda x: app.start()], ['stop', lambda x: app.stop()]]
+					right_action_items: [['cog', lambda x: app.bottomsheet()],['play', lambda x: app.start()],['stop', lambda x: app.stop()]]
 				
 				Graph:
-					id: mygraph
+					id: graphchs
 					xlabel:'Time (s)'
                     ylabel:'Voltage (V)'
 					ymin:0
@@ -38,7 +100,7 @@ MDNavigationLayout:
                     MDLabel:
 						id: coord_label
 						text: 'x: y:'
-						pos: (root.width -125, 10)
+						pos:(graphchs.width - 150, graphchs.height - 90)
 				
 
 				
@@ -164,6 +226,6 @@ MDNavigationLayout:
 					OneLineIconListItem:
 						text: 'Turn Off'
 						on_release:
-							app.stop()
+							quit()
 						IconLeftWidget:
 							icon: 'power'

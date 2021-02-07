@@ -1,5 +1,9 @@
 from kivymd.app import MDApp
+from kivy.factory import Factory
 from kivymd.uix.navigationdrawer import MDNavigationLayout
+from kivymd.uix.bottomsheet import MDCustomBottomSheet
+from kivy.utils import get_color_from_hex
+from kivymd.color_definitions import colors
 from kivy_garden.graph import MeshLinePlot
 from kivy.clock import Clock
 from serial import Serial
@@ -12,57 +16,59 @@ class CH():
     def __init__(self, color, list_pos):
         self.list_pos = list_pos
         self.color = color
-        self.plot = MeshLinePlot(color=self.color)
+        self.plot = MeshLinePlot(color=get_color_from_hex(self.color))
         self.times = []
         self.meas = []
+        self.meastoplot = []
         
     def reset(self):
         self.times = []
         self.meas = []
+        self.meastoplot = []
         
     def update(self, lista):
         self.times.append(float(lista[0]))
-        self.meas.append(-int(lista[self.list_pos]) * 20.48 / 65535 + 10.24)
-        self.points = [(x,y) for x, y in zip(self.times, self.meas)]
+        self.meas.append(int(lista[self.list_pos]))
+        self.meastoplot.append(-int(lista[self.list_pos]) * 20.48 / 65535 + 10.24)
+        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
         self.plot.points = self.points
 
 
-class CHV():
+class CHV(CH):
     
     def __init__(self, color, list_pos, multiplicador=1):
-        self.list_pos = list_pos
-        self.color = color
-        self.plot = MeshLinePlot(color=self.color)
-        self.times = []
-        self.meas = []
+        CH.__init__(self, color, list_pos)
         self.multiplicador = multiplicador
-        
-    def reset(self):
-        self.times = []
-        self.meas = []
+
         
     def update(self, lista):
         self.times.append(float(lista[0]))
         self.meas.append(float(lista[self.list_pos]) * self.multiplicador)
-        self.points = [(x,y) for x, y in zip(self.times, self.meas)]
+        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
         self.plot.points = self.points
         
  
         
-colors = [[1,0,0,1], [0,1,0,1], [0,0,1,1], [1,1,1,1],
-          [1,1,0,1], [1,0,1,1], [0,1,1,1], [0,0.5,0,1],
-          [0.5,0,0,1]]
+mcolors = [colors['Gray']['300'],
+           colors['Cyan']['A200'],
+           colors['Orange']['A400'],
+           colors['Purple']['A400'],
+           colors['Teal']['A400'],
+           colors['Blue']['A400'],
+           colors['Yellow']['A200'],
+           colors['Red']['A400'],
+           colors['Red']['900']]
           
-dvolts = {'temp': CHV(colors[8], 1, 1),
-          'PS': CHV(colors[0], 11, 0.1875*16.7288/1000),
-          'refV': CHV(colors[1], 13, 0.0625/1000),
-          'minus12V': CHV(colors[2], 12, -0.1875*2.647/1000),
-          '5V': CHV(colors[3], 10, 0.1875/1000)}
+dvolts = {'temp': CHV(mcolors[8], 1, 1),
+          'PS': CHV(mcolors[0], 11, 0.1875*16.7288/1000),
+          'refV': CHV(mcolors[1], 13, 0.0625/1000),
+          'minus12V': CHV(mcolors[2], 12, -0.1875*2.647/1000),
+          '5V': CHV(mcolors[3], 10, 0.1875/1000)}
           
-dchs = {'ch0': CH(colors[0], 2), 'ch1': CH(colors[1], 3),
-        'ch2': CH(colors[2], 4), 'ch3': CH(colors[3], 5),
-        'ch4': CH(colors[4], 6), 'ch5': CH(colors[5], 7),
-        'ch6': CH(colors[6], 8), 'ch7': CH(colors[7], 9)}
+dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3),
+        'ch2': CH(mcolors[2], 4), 'ch3': CH(mcolors[3], 5),
+        'ch4': CH(mcolors[4], 6), 'ch5': CH(mcolors[5], 7),
+        'ch6': CH(mcolors[6], 8), 'ch7': CH(mcolors[7], 9)}
 
 def sender():
 
@@ -70,13 +76,13 @@ def sender():
     myfile = open('rawdata/emulatormeasurmentslong.csv')
     lines = myfile.readlines()
     myfile.close()
-    serial_sender = Serial('/dev/pts/2', 115200, timeout=1)
+    serial_sender = Serial('/dev/pts/4', 115200, timeout=1)
     time_start = time.time()
     
     for line in lines:
         #print ('%s,%s' %(time.time() - time_start, line.strip()))
         serial_sender.write(('%s,%s' %(time.time() - time_start, line)).encode())
-        time.sleep(0.05)
+        time.sleep(0.3)
         if stop_thread:
             break
 
@@ -92,16 +98,16 @@ class MainApp(MDApp):
         self.theme_cls.primay_hue = '200'
         self.title = 'Blue Physics v.10.0'
         self.icon = 'images/logoonlyspheretransparent.png'
-        self.mygraph = self.root.ids.mygraph
+        self.graphchs = self.root.ids.graphchs
         for ch in dchs.values():
-            self.mygraph.add_plot(ch.plot)
+            self.graphchs.add_plot(ch.plot)
 
 
     def start(self):
         global stop_thread
-        self.mygraph.xmax = 60
-        self.mygraph.ymax = 10
-        self.mygraph.ymin = 0
+        self.graphchs.xmax = 60
+        self.graphchs.ymax = 10
+        self.graphchs.ymin = 0
         for ch in dchs.values():
             ch.reset()
         stop_thread = False
@@ -131,12 +137,14 @@ class MainApp(MDApp):
                 for ch in dchs.values():
                     ch.update(lline)
 
-        
             if float(all_llines[-1][0]) > 60:
-                self.mygraph.xmax = float(all_llines[-1][0])
+                self.graphchs.xmax = float(all_llines[-1][0])
             
-
-
+    def bottomsheet(self):
+        self.custom_sheet = MDCustomBottomSheet(screen=Factory.ContentCustomSheet(),
+                                                radius_from='top')
+        self.custom_sheet.open()
+    
     def callback(self):
         print ('oido')
 
