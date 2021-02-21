@@ -1,65 +1,154 @@
-#:import MeshLinePlot kivy_garden.graph.MeshLinePlot
 #:import colors kivymd.color_definitions.colors
 #:import get_color_from_hex kivy.utils.get_color_from_hex
-#:set colorch0 get_color_from_hex(colors['Gray']['300'])
-#:set colorch1 get_color_from_hex(colors['Cyan']['A200'])
-#:set colorch2 get_color_from_hex(colors['Orange']['A400'])
-#:set colorch3 get_color_from_hex(colors['Purple']['A400'])
-#:set colorch4 get_color_from_hex(colors['Teal']['A400'])
-#:set colorch5 get_color_from_hex(colors['Blue']['A400'])
-#:set colorch6 get_color_from_hex(colors['Yellow']['A200'])
-#:set colorch7 get_color_from_hex(colors['Red']['A400'])
+#:set mcolor0 get_color_from_hex(colors['Gray']['300'])
+#:set mcolor1 get_color_from_hex(colors['Cyan']['A200'])
+#:set mcolor2 get_color_from_hex(colors['Orange']['A400'])
+#:set mcolor3 get_color_from_hex(colors['Purple']['A400'])
+#:set mcolor4 get_color_from_hex(colors['Teal']['A400'])
+#:set mcolor5 get_color_from_hex(colors['Blue']['A400'])
+#:set mcolor6 get_color_from_hex(colors['Yellow']['A200'])
+#:set mcolor7 get_color_from_hex(colors['Red']['A400'])
+#:set mcolor8 get_color_from_hex(colors['Red']['900'])
 
-<ContentCustomSheet@BoxLayout>:
-	orientation: 'horizontal'
+<MyGraph>:
+
+	xlabel: 'Time (micros)'
+	ylabel: 'counts'
+	xmax: 100000
+	xmin: 0
+	ymax: 34000
+	ymin: 20000
+	x_ticks_major: 10000
+	x_ticks_minor: 10
+	x_grid: True
+	y_ticks_major: 1000
+	y_ticks_minor: 10
+	y_grid: True
+	x_grid_label: True
+	y_grid_label: True
+
+
+<CheckBoxLabel@BoxLayout>:
+	text: 'ch'
+	color: [1,0,0,1]
+	size_hint: None, None
+	size: self.minimum_size
+	MDCheckbox:
+		id: checkbox
+		color: root.color
+		size_hint: None, None
+		size: 40, 40
+		selected_color: root.color
+		unselected_color: root.color
+		active: True
+		on_active: app.addremoveplot(root.text, *args)
+	MDLabel:
+		size_hint: None, None
+		size: 60, 40
+		id: label
+		color: root.color
+		text: root.text
+
+<CheckGroup@MDCheckbox>:
+	group: 'group1'
+
+
+<CheckBoxLabelGroup@BoxLayout>:
+	text: 'ch'
+	color: [1,0,0,1]
+	size_hint: None, None
+	size: self.minimum_size
+	active: False
+	CheckGroup:
+		id: checkbox
+		color: root.color
+		size_hint: None, None
+		size: 40, 40
+		selected_color: root.color
+		unselected_color: root.color
+		active: root.active
+		on_active: app.addremovegraph(root.text, *args)
+	MDLabel:
+		id: label
+		size_hint: None, None
+		size: 60, 40
+		color: root.color
+		text: root.text
+
+<ContentCustomSheet@MDFloatLayout>:
 	size_hint_y: None
 	height: '100dp'
-	
+
 	MDGridLayout:
-		cols:4
-		MDCheckbox:
-			color:colorch0
-			check:True
-		MDLabel:
+		cols: 4
+		size_hint: None, None
+		size: self.minimum_size
+		pos_hint: None, None
+		pos_hint: {'center_x':.25, 'center_y':.5}
+
+		CheckBoxLabel:
+			id: chb0
 			text: 'ch0'
-			color: colorch0
-		MDCheckbox:
-			color:colorch1
-		MDLabel:
+			color: mcolor0
+		CheckBoxLabel:
+			id: chb1
 			text: 'ch1'
-			color: colorch1
-		MDCheckbox:
-			color:colorch2
-		MDLabel:
+			color: mcolor1
+		CheckBoxLabel:
+			id: chb2
 			text: 'ch2'
-			color: colorch2
-		MDCheckbox:
-			color:colorch3
-		MDLabel:
+			color: mcolor2
+		CheckBoxLabel:
+			id: chb3
 			text: 'ch3'
-			color: colorch3
-		MDCheckbox:
-			color:colorch4
-		MDLabel:
+			color: mcolor3
+		CheckBoxLabel:
+			id: chb4
 			text: 'ch4'
-			color: colorch4
-		MDCheckbox:
-			color:colorch5
-		MDLabel:
+			color: mcolor4
+		CheckBoxLabel:
+			id: chb5
 			text: 'ch5'
-			color: colorch5
-		MDCheckbox:
-			color:colorch6
-		MDLabel:
+			color: mcolor5
+		CheckBoxLabel:
+			id: chb6
 			text: 'ch6'
-			color: colorch6
-		MDCheckbox:
-			color:colorch7
-		MDLabel:
+			color: mcolor6
+		CheckBoxLabel:
+			id: chb7
 			text: 'ch7'
-			color: colorch7
-			
-			
+			color: mcolor7
+
+
+	MDGridLayout:
+		cols: 3
+		size_hint: None, None
+		size: self.minimum_size
+		pos_hint: None, None
+		pos_hint: {'center_x':.75, 'center_y':.5}
+
+		CheckBoxLabelGroup:
+			text: 'None'
+			color: mcolor0
+			active: True
+		CheckBoxLabelGroup:
+			text: 'Temp'
+			color: mcolor8
+		CheckBoxLabelGroup:
+			text: 'PS'
+			color: mcolor1
+		CheckBoxLabelGroup:
+			text: 'refV'
+			color: mcolor2
+		CheckBoxLabelGroup:
+			text: '-12V'
+			color: mcolor3
+		CheckBoxLabelGroup:
+			text: '5V'
+			color: mcolor4
+
+
+
 
 MDNavigationLayout:
 	ScreenManager:
@@ -68,97 +157,83 @@ MDNavigationLayout:
 		MDScreen:
 			name: 'measurescreen'
 			id: measurescreen
-			
+
+			MDBoxLayout:
+				orientation: 'vertical'
+				id: measurescreenlayout
+
+				MDToolbar:
+					id: toolbarmeasure
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+					right_action_items: [['cog', lambda x: app.bottomsheet()],['play', lambda x: app.start()],['stop', lambda x: app.stop()]]
+
+
+
+
+
+		MDScreen:
+			name: 'regulatepsscreen'
+				
 			MDBoxLayout:
 				orientation: 'vertical'
 
 				MDToolbar:
-					id: toolbarmeasure
-					pos_hint: {'top':1}
+					id: toolbarregulateps
 					elevation: 10
 					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
-					right_action_items: [['cog', lambda x: app.bottomsheet()],['play', lambda x: app.start()],['stop', lambda x: app.stop()]]
-				
-				Graph:
-					id: graphchs
-					xlabel:'Time (s)'
-                    ylabel:'Voltage (V)'
-					ymin:0
-					ymax:10
-					xmax:60
-                    padding:5
-                    x_ticks_major:10
-                    x_ticks_minor:10
-                    y_ticks_major:1
-                    y_ticks_minor:10
-                    x_grid:True
-                    y_grid:True
-                    x_grid_label:True
-                    y_grid_label:True
-                    draw_border:True
-                    on_touch_down: coord_label.text = 'x:%.2f y:%.2f' %((self.to_data(args[1].pos[0], args[1].pos[1]))[0],(self.to_data(args[1].pos[0], args[1].pos[1]))[1])
-                    MDLabel:
-						id: coord_label
-						text: 'x: y:'
-						pos:(graphchs.width - 150, graphchs.height - 90)
-				
+					right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
 
-				
-
-		MDScreen:
-			name: 'regulatepsscreen'
-
-			MDToolbar:
-				id: toolbarregulateps
-				pos_hint: {'top':1}
-				elevation: 10
-				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
-				right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
-
-			MDLabel:
-				text: 'Regulate PS'
-				halign: 'center'
+				MDLabel:
+					text: 'Regulate PS'
+					halign: 'center'
 
 		MDScreen:
 			name: 'darkcurrentscreen'
 
-			MDToolbar:
-				id: toolbardarkcurrent
-				pos_hint: {'top':1}
-				elevation: 10
-				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
-				right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
+			MDBoxLayout:
+				orientation: 'vertical'
 
-			MDLabel:
-				text: 'Dark Current'
-				halign: 'center'
+				MDToolbar:
+					id: toolbardarkcurrent
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+					right_action_items: [['play', lambda x: app.callback()], ['stop', lambda x: app.callback()]]
+
+				MDLabel:
+					text: 'Dark Current'
+					halign: 'center'
 
 		MDScreen:
-			name: 'settingsscreen'
+			name: 'metadatascreen'
 
-			MDToolbar:
-				id: toolbarsettings
-				pos_hint: {'top':1}
-				elevation: 10
-				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+			MDBoxLayout:
+				orientation: 'vertical'
 
-			MDLabel:
-				text: 'Settings Screen'
-				halign: 'center'
+				MDToolbar:
+					id: toolbarsettings
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+
+				MDLabel:
+					text: 'Metadata Screen'
+					halign: 'center'
 
 		MDScreen:
 			name: 'analyzescreen'
 
-			MDToolbar:
-				id: toolbarmetadata
-				pos_hint: {'top':1}
-				elevation: 10
-				left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
-				right_action_items: [['folder-search', lambda x: app.callback()]]
+			MDBoxLayout:
+				orientation: 'vertical'
 
-			MDLabel:
-				text: 'Analyze'
-				halign: 'center'
+				MDToolbar:
+					id: toolbarmetadata
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state("open")]]
+					right_action_items: [['folder-search', lambda x: app.callback()]]
+
+				MDLabel:
+					text: 'Analyze'
+					halign: 'center'
 
 
 
@@ -208,12 +283,12 @@ MDNavigationLayout:
 							icon: 'chart-line'
 
 					OneLineIconListItem:
-						text: 'Settings'
+						text: 'Metadata'
 						on_release:
-							screen_manager.current = 'settingsscreen'
+							screen_manager.current = 'metadatascreen'
 							nav_drawer.set_state('close')
 						IconLeftWidget:
-							icon: 'cog'
+							icon: 'database-edit'
 
 					OneLineIconListItem:
 						text: 'Analyze'
