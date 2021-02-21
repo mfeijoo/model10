@@ -6,6 +6,7 @@ from kivymd.color_definitions import colors
 from kivy_garden.graph import Graph, MeshLinePlot
 from kivy.clock import Clock
 from serial import Serial
+import serial.tools.list_ports
 from threading import Thread
 import time
 import math
@@ -38,6 +39,8 @@ class CH():
         self.times = []
         self.meas = []
         self.meastoplot = []
+        self.points = []
+        self.numberofmeas = []
         
     def reset(self):
         self.times = []
@@ -45,33 +48,50 @@ class CH():
         self.meastoplot = []
 
     def firstupdate(self, lista):
-        timetoadd = float(lista[0])
+
+        timetoadd = int(lista[0])
         valuetoadd = int(lista[self.list_pos])
-        valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
+        #valuetoplot = valuetoadd
+        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
         self.times.append(timetoadd)
         self.meas.append(valuetoadd)
-        self.meastoplot.append(valuetoplot)
-        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
-        self.plot.points = self.points
-        self.graph.ymax = valuetoplot + 1
-        self.graph.ymin = valuetoplot - 1
+        #self.meastoplot.append(valuetoplot)
+        #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
+        #self.points.append((timetoadd, valuetoadd))
+        #self.plot.points = self.points
+        #self.graph.ymax = valuetoadd + 1
+        #self.graph.ymin = valuetoadd - 1
 
 
     def update(self, lista):
-        timetoadd = float(lista[0])
+        timetoadd = int(lista[0])
         valuetoadd = int(lista[self.list_pos])
-        valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
+        numbertesttoadd = int(lista[1])
+        #valuetoplot = valuetoadd
+        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
         self.times.append(timetoadd)
         self.meas.append(valuetoadd)
-        self.meastoplot.append(valuetoplot)
-        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
+        self.numberofmeas.append(numbertesttoadd)
+        #self.meastoplot.append(valuetoplot)
+        print (self.name, ' test number: ', numbertesttoadd, ' time: ', timetoadd, 'value: ', valuetoadd)
+        '''if valuetoadd < 29000:
+            self.points.append((timetoadd, valuetoadd))
+            #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
+            #print (self.name, self.points)
+            self.plot.points = self.points
+            if valuetoadd > self.graph.ymax:
+                self.graph.ymax = valuetoadd + 1
+            if valuetoadd < self.graph.ymin:
+                self.graph.ymin = valuetoadd - 1
+            if timetoadd > 10:
+                self.graph.xmax = timetoadd'''
+                
+    def updategraphch(self):
+        self.points = [(x,y) for (x,y) in zip(self.times, self.meas)]
+        self.graph.xmax = self.times[-1]
+        self.graph.xmin = self.graph.xmax - 100000
         self.plot.points = self.points
-        if valuetoplot > self.graph.ymax:
-            self.graph.ymax = valuetoplot + 1
-        if valuetoplot < self.graph.ymin:
-            self.graph.ymin = valuetoplot - 1
-        if timetoadd > 60:
-            self.graph.xmax = timetoadd
+        
 
 
 class CHV(CH):
@@ -81,7 +101,9 @@ class CHV(CH):
         self.multiplicador = multiplicador
 
     def firstupdate(self, lista):
-        timetoadd = float(lista[0])
+
+        timetoadd = int(lista[0])/1000000
+
         valuetoadd = int(lista[self.list_pos])
         valuetoplot = valuetoadd * self.multiplicador
         self.times.append(timetoadd)
@@ -93,7 +115,9 @@ class CHV(CH):
         self.graph.ymin = valuetoplot - 1
 
     def update(self, lista):
-        timetoadd = float(lista[0])
+
+        timetoadd = int(lista[0])/1000000
+
         valuetoadd = int(lista[self.list_pos])
         valuetoplot = valuetoadd * self.multiplicador
         self.times.append(timetoadd)
@@ -126,12 +150,15 @@ dvolts = {'Temp': CHV(mcolors[8], 1, 1),
           '-12V': CHV(mcolors[3], 12, -0.1875*2.647/1000),
           '5V': CHV(mcolors[4], 10, 0.1875/1000)}
           
-dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3),
+dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3)}
+          
+'''dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3),
         'ch2': CH(mcolors[2], 4), 'ch3': CH(mcolors[3], 5),
         'ch4': CH(mcolors[4], 6), 'ch5': CH(mcolors[5], 7),
-        'ch6': CH(mcolors[6], 8), 'ch7': CH(mcolors[7], 9)}
+        'ch6': CH(mcolors[6], 8), 'ch7': CH(mcolors[7], 9)}'''
 
-def sender():
+#emulator
+'''def sender():
 
     global stop_thread
     myfile = open('rawdata/emulatormeasurmentslong.csv')
@@ -148,7 +175,7 @@ def sender():
             break
 
     serial_sender.close()
-    print ('End of sending')
+    print ('End of sending')'''
 
 
 class MainApp(MDApp):
@@ -176,28 +203,65 @@ class MainApp(MDApp):
 
 
     def start(self):
-        global stop_thread
-        self.graphchs.xmax = 60
+        #emulator
+        #global stop_thread
+        
+        self.graphchs.xmax = 10
+
         for ch in dchs.values():
             ch.reset()
         for chv in dvolts.values():
             chv.reset()
-        stop_thread = False
-        self.sender_thread = Thread(target=sender)
-        self.sender_thread.daemon = True
-        self.sender_thread.start()
-        self.ser = Serial('/dev/pts/3', 115200, timeout=1)
-        self.firstupdate()
-        Clock.schedule_interval(self.update, 0.01)
+        
+        #emulator
+        #stop_thread = False
+        #self.sender_thread = Thread(target=sender)
+        #self.sender_thread.daemon = True
+        #self.sender_thread.start()
+        
+        #no emulator
+        device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
+        self.ser = serial.Serial(device, 250000, timeout=1)
+        self.ser.write(b't')
+        
+        #emulator
+        #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
+        
+        #self.firstupdate()
+        self.event1 = Clock.schedule_interval(self.update, 0.1)
+        self.event2 = Clock.schedule_interval(self.updategraph, 0.5)
 
 
     def stop(self):
-        global stop_thread
-        Clock.unschedule(self.update)
-        stop_thread = True
-        self.sender_thread.join()
+        #emulator
+        #global stop_thread
+        
+        Clock.unschedule(self.event1)
+        Clock.unschedule(self.event2)
+        
+        #emulator
+        #stop_thread = True
+        #self.sender_thread.join()
+        
         self.ser.close()
-        print('sender_thread kiled')
+        
+        #emulator
+        #print('sender_thread kiled')
+
+
+    def firstupdate(self):
+        lline = self.ser.readline().decode().strip().split(',')
+        for i in range(10):
+            lline = self.ser.readline().decode().strip().split(',')
+            if len(lline) == 4:
+                break
+            else:
+                print('error line', lline)
+        for ch in dchs.values():
+            ch.firstupdate(lline)
+        #for chv in dvolts.values():
+         #   chv.firstupdate(lline)
+
 
 
     def firstupdate(self):
@@ -214,17 +278,28 @@ class MainApp(MDApp):
             chv.firstupdate(lline)
 
     def update(self, dt):
-        if self.ser.in_waiting:
-            full_line = self.ser.read(self.ser.in_waiting).decode().strip()
-            full_lines = full_line.split('\n')
-            all_llines = [line.split(',') for line in full_lines]
-            for lline in all_llines:
-                if len(lline) != 14:
-                    print ('error one line: ', len(lline))
+        lineas = self.ser.read(self.ser.in_waiting).decode().split('\r\n')
+        for linea in lineas:
+            lista = linea.split(',')
+            if (not('' in lista) and len(lista) == 4):
+                #print(lista)
                 for ch in dchs.values():
-                    ch.update(lline)
-                for chv in dvolts.values():
-                    chv.update(lline)
+
+                    ch.update(lista)
+
+        '''full_lines = full_line.split('\n')
+        all_llines = [line.split(',') for line in full_lines]
+        for lline in all_llines:
+            print (lline)
+            for ch in dchs.values():
+                ch.update(lline)
+            for chv in dvolts.values():
+                chv.update(lline)'''
+                
+    def updategraph(self, dt):
+        dchs['ch0'].updategraphch()
+        dchs['ch1'].updategraphch()
+
 
 
     def bottomsheet(self):
