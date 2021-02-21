@@ -11,7 +11,21 @@ import time
 import math
 
 class MyGraph(Graph):
-    pass
+    
+    def __init__(self, **kwargs):
+        super(MyGraph, self).__init__(**kwargs)
+    
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            print(self.to_data(touch.x, touch.y))
+    
+    #pan functionality
+    '''def on_touch_up(self, touch):
+        posfinal = self.to_data(touch.pos)
+        self.xmax = self.xmax - (posfinal[0] - self.posinitial[0])
+        self.xmin = self.xmin - (posfinal[0] - self.posinitial[0])
+        self.ymax = self.xmax - (posfianl[1] - self.posinitial[1])
+        self.ymin = self.ymin - (posfinal[1] - self.posinitial[1])'''
 
 class CH():
     
