@@ -34,6 +34,7 @@ class CH():
         self.meastoplot = []
 
     def firstupdate(self, lista):
+
         timetoadd = int(lista[0])
         valuetoadd = int(lista[self.list_pos])
         #valuetoplot = valuetoadd
@@ -86,7 +87,9 @@ class CHV(CH):
         self.multiplicador = multiplicador
 
     def firstupdate(self, lista):
+
         timetoadd = int(lista[0])/1000000
+
         valuetoadd = int(lista[self.list_pos])
         valuetoplot = valuetoadd * self.multiplicador
         self.times.append(timetoadd)
@@ -98,7 +101,9 @@ class CHV(CH):
         self.graph.ymin = valuetoplot - 1
 
     def update(self, lista):
+
         timetoadd = int(lista[0])/1000000
+
         valuetoadd = int(lista[self.list_pos])
         valuetoplot = valuetoadd * self.multiplicador
         self.times.append(timetoadd)
@@ -145,7 +150,7 @@ dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3)}
     myfile = open('rawdata/emulatormeasurmentslong.csv')
     lines = myfile.readlines()
     myfile.close()
-    serial_sender = Serial('/dev/pts/4', 115200, timeout=1)
+    serial_sender = Serial('/dev/pts/2', 115200, timeout=1)
     time_start = time.time()
     
     for line in lines:
@@ -188,6 +193,7 @@ class MainApp(MDApp):
         #global stop_thread
         
         self.graphchs.xmax = 10
+
         for ch in dchs.values():
             ch.reset()
         for chv in dvolts.values():
@@ -243,6 +249,20 @@ class MainApp(MDApp):
          #   chv.firstupdate(lline)
 
 
+
+    def firstupdate(self):
+        lline = self.ser.readline().decode().strip().split(',')
+        for i in range(10):
+            lline = self.ser.readline().decode().strip().split(',')
+            if len(lline) == 14:
+                break
+            else:
+                print('error line', lline)
+        for ch in dchs.values():
+            ch.firstupdate(lline)
+        for chv in dvolts.values():
+            chv.firstupdate(lline)
+
     def update(self, dt):
         lineas = self.ser.read(self.ser.in_waiting).decode().split('\r\n')
         for linea in lineas:
@@ -250,6 +270,7 @@ class MainApp(MDApp):
             if (not('' in lista) and len(lista) == 4):
                 #print(lista)
                 for ch in dchs.values():
+
                     ch.update(lista)
 
         '''full_lines = full_line.split('\n')
@@ -264,6 +285,7 @@ class MainApp(MDApp):
     def updategraph(self, dt):
         dchs['ch0'].updategraphch()
         dchs['ch1'].updategraphch()
+
 
 
     def bottomsheet(self):
