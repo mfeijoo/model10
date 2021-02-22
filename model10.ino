@@ -13,11 +13,11 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 #define RST A2
 #define HOLD A3
 #define SHD_PS 11
-#define RAN_1 9
+#define RAN_1 7 
 #define RAN_2 A4
 #define RAN_3 A1
 #define RAN_4 A0
-#define SHD_REF 7
+#define SHD_REF 9
 #define CS_POT 10
 #define PSFC 16.4362
 #define testpin 13
@@ -34,7 +34,7 @@ float adc3V = 0.0000;
 
 int integral = 300;
 unsigned long integraltimemicros = 1000;
-int resettimemicros = 70;
+int resettimemicros = 10;
 
 unsigned long previousmillis = 0;
 unsigned long initialintegralmicros = 0;
@@ -85,12 +85,12 @@ void setup() {
   digitalWrite(SHD_REF, LOW);
   digitalWrite(RAN_1, LOW);
   digitalWrite(RAN_2, LOW);
-  digitalWrite(RAN_3, LOW);
-  digitalWrite(RAN_4, HIGH);
+  digitalWrite(RAN_3, HIGH);
+  digitalWrite(RAN_4, LOW);
   digitalWrite(CS_POT, HIGH);
   
 
-  Serial.begin(250000);
+  Serial.begin(115200);
   Wire.begin();
   SPI.begin();
 
@@ -307,12 +307,18 @@ void ReadChannels() {
   //digitalWrite(testpin, LOW);
   SPI.endTransaction();
 
+  initialintegralmicros = micros();
+
+  digitalWrite(testpin,HIGH);
+
   SPI.beginTransaction(SPISettings(66670000, MSBFIRST, SPI_MODE0));
   digitalWrite(CS_ADQ1, LOW);
   chb[1] = SPI.transfer16(0b1101000000010000);
   SPI.transfer16(0b0000000000000000);
   digitalWrite(CS_ADQ1, HIGH);
   SPI.endTransaction();
+
+  digitalWrite(testpin, LOW);
 
   //chv[0] = -(chb[0] * 24.576/65535) + 12.288;
   //chv[1] = -(chb[1] * 24.576/65535) + 12.288;
@@ -377,7 +383,7 @@ void ReadChannelsOnce() {
   //Hold ends
   digitalWrite (HOLD, LOW);
   //digitalWrite (testpin, HIGH);
-  initialintegralmicros = micros();
+  //initialintegralmicros = micros();
 }
 
 
@@ -457,6 +463,36 @@ void setpot(int x) {
 
 //function to substract dark current
 void sdc(){
+  unsigned int dccount = 65534;
+  setvoltdc(0, dccount);
+  delay(1);
+  while (micros() - initialintegralmicros < integralmicros){}
+  ReadChannelsOnce();
+  Serial.print(0);
+  Serial.print(",dccount,");
+  Serial.print(dccount);
+  Serial.print(",chb,");
+  Serial.println(chb[0]);
+  while (micros() - initialintegralmicros < integralmicros){}
+  ReadChannelsOnce();
+  while (chb[0] < 62000){
+    dccount = dccount - 1;
+    setvoltdc(0, dccount);
+    while (micros() - initialintegralmicros < integralmicros){}
+    ReadChannelsOnce();
+    Serial.print(0);
+    Serial.print(",dccount,");
+    Serial.print(dccount);
+    Serial.print(",chb,");
+    Serial.println(chb[0]);
+    while (micros() - initialintegralmicros < integralmicros){}
+    ReadChannelsOnce();
+  }
+  
+}
+
+
+void sdcold(){
  unsigned int dcvch[] = {32767, 32767};
  unsigned int dcvchmax[] = {65535, 65535};
  unsigned int dcvchmin[] = {0, 0};
@@ -477,20 +513,19 @@ void sdc(){
   while (micros() - initialintegralmicros < integralmicros){}
   ReadChannelsOnce();
   
-  while (!((chv[i] <= -0.0005) && (chv[i] >= 0.0005))){
+  while (!((chv[i] <= -10.0005) && (chv[i] >= -9.9995))){
    if (dcvchmax[i] - dcvchmin[i] == 1){
     break;
    }
-   if (chv[i] < -0.0005){ 
+   if (chv[i] < -10.0005){ 
     dcvchmax[i] = dcvch[i];
    }
-   if (chv[i] > 0.0005){
+   if (chv[i] > -9.9995){
     dcvchmin[i] = dcvch[i];
    }
    dcvch[i] = int((dcvchmin[i] + dcvchmax[i])/2);
    setvoltdc(i, dcvch[i]);
-   while (millis() - previousmillis < integral){ 
-   }
+   while (micros() - initialintegralmicros < integralmicros){}
    ReadChannelsOnce();
    Serial.print(i);
    Serial.print(",dcvchmin,");
@@ -501,8 +536,7 @@ void sdc(){
    Serial.print(dcvchmax[i]);
    Serial.print(",chv,");
    Serial.println(chv[i], 4);
-   while (millis() - previousmillis < integral){ 
-   }
+   while (micros() - initialintegralmicros < integralmicros){}
    ReadChannelsOnce(); 
   }
  }

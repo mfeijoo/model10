@@ -35,12 +35,11 @@ class CH():
 
     def firstupdate(self, lista):
         timetoadd = int(lista[0])
-        valuetoadd = int(lista[self.list_pos])
-        #valuetoplot = valuetoadd
-        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
+        valuetoadd = int(lista[self.list_pos]) 
+        valuetoplot = -valuetoadd * 24.576/65535 + 12.288
         self.times.append(timetoadd)
         self.meas.append(valuetoadd)
-        #self.meastoplot.append(valuetoplot)
+        self.meastoplot.append(valuetoplot)
         #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
         #self.points.append((timetoadd, valuetoadd))
         #self.plot.points = self.points
@@ -52,13 +51,12 @@ class CH():
         timetoadd = int(lista[0])
         valuetoadd = int(lista[self.list_pos])
         numbertesttoadd = int(lista[1])
-        #valuetoplot = valuetoadd
-        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
+        valuetoplot = -valuetoadd * 24.576/65535 + 12.288
         self.times.append(timetoadd)
         self.meas.append(valuetoadd)
         self.numberofmeas.append(numbertesttoadd)
-        #self.meastoplot.append(valuetoplot)
-        print (self.name, ' test number: ', numbertesttoadd, ' time: ', timetoadd, 'value: ', valuetoadd)
+        self.meastoplot.append(valuetoplot)
+        print (self.name, ' test number: ', numbertesttoadd, ' time: ', timetoadd, 'value: ', valuetoplot)
         '''if valuetoadd < 29000:
             self.points.append((timetoadd, valuetoadd))
             #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
@@ -72,7 +70,7 @@ class CH():
                 self.graph.xmax = timetoadd'''
                 
     def updategraphch(self):
-        self.points = [(x,y) for (x,y) in zip(self.times, self.meas)]
+        self.points = [(x,y) for (x,y) in zip(self.times, self.meastoplot)]
         self.graph.xmax = self.times[-1]
         self.graph.xmin = self.graph.xmax - 100000
         self.plot.points = self.points
@@ -249,8 +247,8 @@ class MainApp(MDApp):
             lista = linea.split(',')
             if (not('' in lista) and len(lista) == 4):
                 #print(lista)
-                for ch in dchs.values():
-                    ch.update(lista)
+                dchs['ch0'].update(lista)
+                dchs['ch1'].update(lista)
 
         '''full_lines = full_line.split('\n')
         all_llines = [line.split(',') for line in full_lines]
