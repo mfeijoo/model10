@@ -3,6 +3,8 @@
 #include <Wire.h>
 #include "Adafruit_MCP9808.h"
 
+
+
 ADS1115_WE adc(0x48);
 
 Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
@@ -33,14 +35,16 @@ float adc2V = 0.0000;
 float adc3V = 0.0000;
 
 int integral = 300;
-unsigned long integraltimemicros = 1000;
+unsigned long integraltimemicros = 1300;
 int resettimemicros = 10;
+
+unsigned int countvolt = 1;
 
 unsigned long previousmillis = 0;
 unsigned long initialintegralmicros = 0;
 unsigned long integralmicros = 0;
 unsigned long startmicros = 0;
-int count = 0;
+unsigned long count = 0;
 
 //pot value in counts from 0 to 1023
 int potlow;
@@ -51,6 +55,10 @@ float setvolt = 56.56;
 float PSV;
 
 float temp = 27;
+unsigned int tempbytes;
+
+byte arraytosend[22];
+
 
 //darkcurrents
 unsigned int dcvch[] = {5000, 3000};
@@ -62,6 +70,10 @@ float chv[] = {0.0, 0.0};
 
 
 void setup() {
+
+  //arraytosend[22] = 126;
+  //arraytosend[23] = 126;
+  
   
   //all pins output
   pinMode(CS_ADQ1, OUTPUT);
@@ -132,7 +144,7 @@ void setup() {
   digitalWrite (SHD_PS, HIGH);
 
   //Set the pot for the first time
-  setpot(300);
+  setpot(365);
   
 
   
@@ -154,67 +166,82 @@ void setup() {
   //setpot(700);
 
   adc.setConvRate(ADS1115_860_SPS);
+  adc.setVoltageRange_mV(ADS1115_RANGE_6144);
   
 }
 
+
 void loop() {
+  
 
   if (micros() - initialintegralmicros >= integraltimemicros){
-    
-
-
-    ReadChannelsOncetempandsend();
-
-    /*//digitalWrite(testpin, HIGH);
-    adc.setVoltageRange_mV(ADS1115_RANGE_6144);
-    adc.setCompareChannels(ADS1115_COMP_0_GND);
-    adc.startSingleMeasurement();
-    adc.startSingleMeasurement();
-    while(adc.isBusy()){
-      ReadChannelsOncetempandsend();
-      }
-    adc0 = adc.getRawResult();
-    //float adc0V = adc.getResult_V();
-    //digitalWrite(testpin, LOW);
- 
-
-    adc.setCompareChannels(ADS1115_COMP_1_GND);
-    adc.startSingleMeasurement();
-    adc.startSingleMeasurement();
-    while(adc.isBusy()){
-      ReadChannelsOncetempandsend();
-      }
-    adc1 = adc.getRawResult();
-    //adc1V = adc.getResult_V() * 16.2985;
-    
-    adc.setCompareChannels(ADS1115_COMP_2_GND);
-    adc.startSingleMeasurement();
-    adc.startSingleMeasurement();
-    while(adc.isBusy()){
-      ReadChannelsOncetempandsend();
-      }
-    adc2 = adc.getRawResult();
-    //adc2V = adc.getResult_V() * -4.6529;
-
-    adc.setVoltageRange_mV(ADS1115_RANGE_2048);
-    adc.setCompareChannels(ADS1115_COMP_3_GND);
-    adc.startSingleMeasurement();
-    adc.startSingleMeasurement();
-    while(adc.isBusy()){
-      ReadChannelsOncetempandsend();
-      }
-    adc3 = adc.getRawResult();
-    //adc3V = adc.getResult_V();
-    //digitalWrite(testpin, LOW);*/
+    ReadChannelsOnceandsend();
+    switch(countvolt){
+      case 1:
+        adc.setCompareChannels(ADS1115_COMP_0_GND);
+        adc.startSingleMeasurement();
+        break;
+       case 3:
+        adc0 = adc.getRawResult();
+        arraytosend[14] = adc0 >> 8;
+        arraytosend[15] = adc0 & 0xFF;
+        //adc0V = adc.getResult_V();
+        break;
+       case 5:
+        adc.setCompareChannels(ADS1115_COMP_1_GND);
+        adc.startSingleMeasurement();
+        break;
+       case 7:
+        adc1 = adc.getRawResult();
+        arraytosend[16] = adc1 >> 8;
+        arraytosend[17] = adc1 & 0xFF;
+        //adc1V = adc.getResult_V();
+        break;
+       case 9:
+        adc.setCompareChannels(ADS1115_COMP_2_GND);
+        adc.startSingleMeasurement();
+        break;
+       case 11:
+        adc2 = adc.getRawResult();
+        arraytosend[18] = adc2 >> 8;
+        arraytosend[19] = adc2 & 0xFF;
+        //adc2V = adc.getResult_V();
+        break;
+       case 13:
+        adc.setVoltageRange_mV(ADS1115_RANGE_2048);
+        break;
+       case 15:
+        adc.setCompareChannels(ADS1115_COMP_3_GND);
+        adc.startSingleMeasurement();
+        break;
+       case 17:
+        adc3 = adc.getRawResult();
+        arraytosend[20] = adc3 >> 8;
+        arraytosend[21] = adc3 & 0xFF;
+        //adc3V = adc.getResult_V();
+        break;
+       case 19:
+        adc.setVoltageRange_mV(ADS1115_RANGE_6144);
+        break;
+       case 21:
+        //temp = tempsensor.readTempC();
+        tempbytes = tempsensor.read16(0x05);
+        arraytosend[8] = tempbytes >> 8;
+        arraytosend[9] = tempbytes & 0xFF;
+        break;
+       case 22:
+        countvolt = 0;
+        break;
+       
+    }
+    countvolt += 1;
   }
 
-
-
-
+  //PROTOCOLO DE COMUNICACION
   if (Serial.available() > 0) {
     char inChar = (char)Serial.read();
     
-    
+    //REGULATE POWER SUPPLY    
     if (inChar == 'r'){
       String PSs = Serial.readStringUntil(',');
       char comma = Serial.read(); //discard comma at the end
@@ -223,6 +250,7 @@ void loop() {
       regulatePS();
     }
 
+    //SELECT INTEGRATOR CAPACITOR RANGE
     if (inChar == 'c'){
       String rangonstr = Serial.readStringUntil(',');
       char comma = Serial.read();
@@ -258,16 +286,27 @@ void loop() {
       }
       delay(500);
     }
-    
+
+    //SUBTRACT DARK CURRENT
     if (inChar == 's'){
      sdc();
     }
 
+    //SET POT MANUALLY use int from 0 to 1024
+    if (inChar == 'p'){
+      String stringsetpotcounts = Serial.readStringUntil(',');
+      char comma = Serial.read();
+      int setpotcounts = stringsetpotcounts.toInt();
+      setpot(setpotcounts);
+    }
+
+    //RESTART MICROSECONDS CLOCK
     if (inChar == 't'){
       startmicros = micros();
       count = 0;
     }
 
+    //SET DARK CURRENT MANUALLY
     if (inChar == 'd'){
       String ch = Serial.readStringUntil(',');
       //char comma = Serial.read();
@@ -279,7 +318,8 @@ void loop() {
       Serial.print(" set to ");
       Serial.println(dcvalue);
     }
-     
+
+     //TURN ON OFF POWER SUPPLY
      if (inChar == 'w'){
       char ps = (char)Serial.read();
       if (ps == '1'){
@@ -298,6 +338,7 @@ void loop() {
 
 
 void ReadChannels() {
+  //digitalWrite(testpin,HIGH);
   //digitalWrite(testpin, HIGH);
   SPI.beginTransaction(SPISettings(66670000, MSBFIRST, SPI_MODE0));
   digitalWrite(CS_ADQ0, LOW);
@@ -306,11 +347,8 @@ void ReadChannels() {
   digitalWrite(CS_ADQ0, HIGH);
   //digitalWrite(testpin, LOW);
   SPI.endTransaction();
-
-  initialintegralmicros = micros();
-
-  digitalWrite(testpin,HIGH);
-
+  //digitalWrite(testpin, LOW);
+  
   SPI.beginTransaction(SPISettings(66670000, MSBFIRST, SPI_MODE0));
   digitalWrite(CS_ADQ1, LOW);
   chb[1] = SPI.transfer16(0b1101000000010000);
@@ -318,49 +356,57 @@ void ReadChannels() {
   digitalWrite(CS_ADQ1, HIGH);
   SPI.endTransaction();
 
-  digitalWrite(testpin, LOW);
+  arraytosend[10] = chb[0] >> 8;
+  arraytosend[11] = chb[0] & 0xFF;
+  arraytosend[12] = chb[1] >> 8;
+  arraytosend[13] = chb[1] & 0xFF;
 
   //chv[0] = -(chb[0] * 24.576/65535) + 12.288;
   //chv[1] = -(chb[1] * 24.576/65535) + 12.288;
   
 }
 
-void ReadChannelsOncetempandsend(){
-   
+void ReadChannelsOnceandsend(){
+   //digitalWrite(testpin, HIGH);
    ReadChannelsOnce();
 
-  //while it is integrating
-  //read temp and send to serial
-
-  //digitalWrite(testpin, HIGH);
-  //temp = tempsensor.readTempC();
-  //digitalWrite(testpin, LOW);
-
-
     //digitalWrite(testpin, HIGH);
-    Serial.print(initialintegralmicros - startmicros);
-    //Serial.print(",");
-    //Serial.print(temp, 4);
+    arraytosend[0] = (count >> 24) & 0xFF;
+    arraytosend[1] = (count >> 16) & 0xFF;
+    arraytosend[2] = (count >> 8) & 0xFF;
+    arraytosend[3] = count & 0xFF;
+
+    unsigned long timesincestart = micros() - startmicros;
+    arraytosend[4] = (timesincestart >> 24) & (0xFF);
+    arraytosend[5] = (timesincestart >> 16) & (0xFF);
+    arraytosend[6] = (timesincestart >> 8) & (0xFF);
+    arraytosend[7] = timesincestart & 0xFF;
+    
+    Serial.write(arraytosend, 22);
+    
+    /*Serial.print(timesincestart);
+    Serial.print(",");
+    Serial.print(temp, 4);
     Serial.print(",");
     Serial.print(count);
     Serial.print(",");
     Serial.print(chb[0]);
     Serial.print(",");
-    Serial.println(chb[1]);
-    //Serial.print(",");
+    Serial.print(chb[1]);
+    Serial.print(",");
     
     //adc0 5V
-    //Serial.print(adc0);
-    //Serial.print(",");
+    Serial.print(adc0);
+    Serial.print(",");
     //adc1 PS
-    //Serial.print(adc1);
-    //Serial.print(",");
+    Serial.print(adc1);
+    Serial.print(",");
     //adc2 -15
-    //Serial.print(adc2);
-    //Serial.print(",");
+    Serial.print(adc2);
+    Serial.print(",");
     //adc3 ref 1.25V
-    //Serial.println(adc3);
-    //digitalWrite(testpin, LOW);
+    Serial.println(adc3);
+    //digitalWrite(testpin, LOW);*/
     count = count + 1;
 
   
@@ -368,22 +414,23 @@ void ReadChannelsOncetempandsend(){
 
 void ReadChannelsOnce() {
   
-  //digitalWrite(testpin, HIGH);
+  digitalWrite(testpin, HIGH);
   //hold starts
   digitalWrite(HOLD, HIGH);
   delayMicroseconds(10);
   ReadChannels();
-  
   //digitalWrite (testpin, LOW);
   //reset the integration and a new integration process starts
   digitalWrite (RST, LOW);
   delayMicroseconds (resettimemicros);
   digitalWrite (RST, HIGH);
-  delayMicroseconds(5);
+  delayMicroseconds(10);
   //Hold ends
+  //digitalWrite(testpin,HIGH);
   digitalWrite (HOLD, LOW);
+  digitalWrite(testpin,LOW);
   //digitalWrite (testpin, HIGH);
-  //initialintegralmicros = micros();
+  initialintegralmicros = micros();
 }
 
 
@@ -399,7 +446,7 @@ void regulatePS(){
   //measure PS once
   //potlow = 0;
   //pothigh = 1023;
-  potnow = 255;
+  potnow = 320;
   setpot(potnow);
   delay (1000);
   readPS();
@@ -446,7 +493,7 @@ void readPS(){
   adc.setCompareChannels(ADS1115_COMP_1_GND);
   adc.startSingleMeasurement();
   while(adc.isBusy()){}
-  PSV = adc.getResult_V() * 16.2985;
+  PSV = adc.getResult_V() * 16.39658;
 }
 
 void setpot(int x) {
