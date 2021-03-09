@@ -138,6 +138,10 @@ class MainApp(MDApp):
         #self.sender_thread.start()
         
         stop_thread = False
+        self.root.ids.checkboxlevel1.disabled = True
+        self.root.ids.checkboxlevel2.disabled = True
+        self.root.ids.checkboxlevel3.disabled = True
+        self.root.ids.checkboxlevel4.disabled = True
         self.receiver_thread = Thread(target=receiver)
         self.receiver_thread.daemon = True
         self.receiver_thread.start()
@@ -151,6 +155,10 @@ class MainApp(MDApp):
     def stop(self):
         #emulator
         global stop_thread
+        self.root.ids.checkboxlevel1.disabled = False
+        self.root.ids.checkboxlevel2.disabled = False
+        self.root.ids.checkboxlevel3.disabled = False
+        self.root.ids.checkboxlevel4.disabled = False
 
         #emulator
         stop_thread = True
@@ -193,6 +201,13 @@ class MainApp(MDApp):
 
     def callback(self):
         print ('oido')
+        
+    def onofflevel(self, intext, switch):
+        print ('Rango:', intext[-1])
+        device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
+        ser = serial.Serial(device, 115200, timeout=1)
+        ser.write(('c%s,' %intext[-1]).encode())
+        ser.close()
 
 
 

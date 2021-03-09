@@ -53,6 +53,8 @@
 	group: 'group1'
 
 
+
+
 <CheckBoxLabelGroup@BoxLayout>:
 	text: 'ch'
 	color: [1,0,0,1]
@@ -74,6 +76,33 @@
 		size: 60, 40
 		color: root.color
 		text: root.text
+
+		
+<CheckboxLevelGroup@MDCheckbox>:
+	group: 'group2'
+	unselected_color: mcolor5
+
+
+<CheckboxLabelLevel@BoxLayout>:
+	text: 'Level'
+	active: False
+	size_hint: None, None
+	size: 100, 40
+	pos_hint:{'center_x':0.5}
+	CheckboxLevelGroup:
+		id: checkboxlevel
+		size_hint: None, None
+		size: 40, 40
+		active: root.active
+		on_release:
+			if self.active: app.onofflevel(root.text, *args)
+			else: self.active = True
+	MDLabel:
+		id: labelcheckboxlevel
+		size_hint: None, None
+		size: 60, 40
+		text: root.text
+
 
 <ContentCustomSheet@MDFloatLayout>:
 	size_hint_y: None
@@ -234,7 +263,41 @@ MDNavigationLayout:
 				MDLabel:
 					text: 'Analyze'
 					halign: 'center'
-
+						
+		MDScreen:
+			name: 'settings'
+				
+			MDBoxLayout:
+				orientation: 'vertical'
+				
+				MDToolbar:
+					id: toolbarsettings
+					elevation: 10
+					left_action_items: [['menu', lambda x: nav_drawer.set_state('open')]]
+					
+				MDBoxLayout:
+					orientation: 'vertical'
+					MDLabel:
+						text: 'Select Capacitor Level:'
+						halign: 'center'
+						size_hint_y: None
+						height: 40
+					CheckboxLabelLevel:
+						id: checkboxlevel1
+						text: 'Level 1'
+					CheckboxLabelLevel:
+						id: checkboxlevel2
+						text: 'Level 2'
+					CheckboxLabelLevel:
+						id: checkboxlevel3
+						text: 'Level 3'
+						active: True
+					CheckboxLabelLevel:
+						id: checkboxlevel4
+						text: 'Level 4'
+					MDBoxLayout:
+						
+					
 
 
 	MDNavigationDrawer:
@@ -297,6 +360,15 @@ MDNavigationLayout:
 							nav_drawer.set_state('close')
 						IconLeftWidget:
 							icon: 'chart-bell-curve'
+								
+					OneLineIconListItem:
+						text: 'Settings'
+						on_release:
+							screen_manager.current = 'settings'
+							nav_drawer.set_state('close')
+						IconLeftWidget:
+							icon: 'cog'
+							
 
 					OneLineIconListItem:
 						text: 'Turn Off'
