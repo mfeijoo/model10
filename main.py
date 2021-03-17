@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from kivymd.app import MDApp
 from kivy.factory import Factory
 from kivymd.uix.bottomsheet import MDCustomBottomSheet
@@ -10,128 +11,10 @@ import serial.tools.list_ports
 from threading import Thread
 import time
 import math
+import pandas as pd
 
 class MyGraph(Graph):
-    
-    def __init__(self, **kwargs):
-        super(MyGraph, self).__init__(**kwargs)
-    
-    def on_touch_down(self, touch):
-        if self.collide_point(*touch.pos):
-            print(self.to_data(touch.x, touch.y))
-    
-    #pan functionality
-    '''def on_touch_up(self, touch):
-        posfinal = self.to_data(touch.pos)
-        self.xmax = self.xmax - (posfinal[0] - self.posinitial[0])
-        self.xmin = self.xmin - (posfinal[0] - self.posinitial[0])
-        self.ymax = self.xmax - (posfianl[1] - self.posinitial[1])
-        self.ymin = self.ymin - (posfinal[1] - self.posinitial[1])'''
-
-class CH():
-    
-    def __init__(self, color, list_pos):
-        self.list_pos = list_pos
-        self.name = 'ch%s' %(list_pos - 2)
-        self.checkbox = 'chb%s' %(list_pos - 2)
-        self.color = color
-        self.plot = MeshLinePlot(color=get_color_from_hex(self.color))
-        self.times = []
-        self.meas = []
-        self.meastoplot = []
-        self.points = []
-        self.numberofmeas = []
-        
-    def reset(self):
-        self.times = []
-        self.meas = []
-        self.meastoplot = []
-
-    def firstupdate(self, lista):
-
-        timetoadd = int(lista[0])
-        valuetoadd = int(lista[self.list_pos])
-        #valuetoplot = valuetoadd
-        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
-        self.times.append(timetoadd)
-        self.meas.append(valuetoadd)
-        #self.meastoplot.append(valuetoplot)
-        #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
-        #self.points.append((timetoadd, valuetoadd))
-        #self.plot.points = self.points
-        #self.graph.ymax = valuetoadd + 1
-        #self.graph.ymin = valuetoadd - 1
-
-
-    def update(self, lista):
-        timetoadd = int(lista[0])
-        valuetoadd = int(lista[self.list_pos])
-        numbertesttoadd = int(lista[1])
-        #valuetoplot = valuetoadd
-        #valuetoplot = -valuetoadd * 20.48 / 65535 + 10.24
-        self.times.append(timetoadd)
-        self.meas.append(valuetoadd)
-        self.numberofmeas.append(numbertesttoadd)
-        #self.meastoplot.append(valuetoplot)
-        print (self.name, ' test number: ', numbertesttoadd, ' time: ', timetoadd, 'value: ', valuetoadd)
-        '''if valuetoadd < 29000:
-            self.points.append((timetoadd, valuetoadd))
-            #self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
-            #print (self.name, self.points)
-            self.plot.points = self.points
-            if valuetoadd > self.graph.ymax:
-                self.graph.ymax = valuetoadd + 1
-            if valuetoadd < self.graph.ymin:
-                self.graph.ymin = valuetoadd - 1
-            if timetoadd > 10:
-                self.graph.xmax = timetoadd'''
-                
-    def updategraphch(self):
-        self.points = [(x,y) for (x,y) in zip(self.times, self.meas)]
-        self.graph.xmax = self.times[-1]
-        self.graph.xmin = self.graph.xmax - 100000
-        self.plot.points = self.points
-        
-
-
-class CHV(CH):
-
-    def __init__(self, color, list_pos, multiplicador=1):
-        CH.__init__(self, color, list_pos)
-        self.multiplicador = multiplicador
-
-    def firstupdate(self, lista):
-
-        timetoadd = int(lista[0])/1000000
-
-        valuetoadd = int(lista[self.list_pos])
-        valuetoplot = valuetoadd * self.multiplicador
-        self.times.append(timetoadd)
-        self.meas.append(valuetoadd)
-        self.meastoplot.append(valuetoplot)
-        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
-        self.plot.points = self.points
-        self.graph.ymax = valuetoplot + 1
-        self.graph.ymin = valuetoplot - 1
-
-    def update(self, lista):
-
-        timetoadd = int(lista[0])/1000000
-
-        valuetoadd = int(lista[self.list_pos])
-        valuetoplot = valuetoadd * self.multiplicador
-        self.times.append(timetoadd)
-        self.meas.append(valuetoadd)
-        self.meastoplot.append(valuetoplot)
-        self.points = [(x,y) for x, y in zip(self.times, self.meastoplot)]
-        self.plot.points = self.points
-        if valuetoplot > self.graph.ymax:
-            self.graph.ymax = valuetoplot + 1
-        if valuetoplot < self.graph.ymin:
-            self.graph.ymin = valuetoplot - 1
-        if timetoadd > 60:
-            self.graph.xmax = timetoadd
-
+    pass
 
 
 mcolors = [colors['Gray']['300'],
@@ -144,18 +27,68 @@ mcolors = [colors['Gray']['300'],
            colors['Red']['A400'],
            colors['Red']['900']]
           
-dvolts = {'Temp': CHV(mcolors[8], 1, 1),
-          'PS': CHV(mcolors[1], 11, 0.1875*16.7288/1000),
-          'refV': CHV(mcolors[2], 13, 0.0625/1000),
-          '-12V': CHV(mcolors[3], 12, -0.1875*2.647/1000),
-          '5V': CHV(mcolors[4], 10, 0.1875/1000)}
-          
-dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3)}
-          
-'''dchs = {'ch0': CH(mcolors[0], 2), 'ch1': CH(mcolors[1], 3),
-        'ch2': CH(mcolors[2], 4), 'ch3': CH(mcolors[3], 5),
-        'ch4': CH(mcolors[4], 6), 'ch5': CH(mcolors[5], 7),
-        'ch6': CH(mcolors[6], 8), 'ch7': CH(mcolors[7], 9)}'''
+        
+number_of_channels = 2
+
+lchs = [{'name':'ch%s' %i,
+         'meas':[], 
+         'color':mcolors[i], 
+         'plot': MeshLinePlot(color=get_color_from_hex(mcolors[i]))} for i in range(number_of_channels)]
+
+
+def receiver():
+    global stop_thread, times
+    times = []
+    counts = []
+    temps = []
+    v5s = []
+    PSs = []
+    vminus15s = []
+    vrefs = []
+    for dch in lchs:
+        dch['meas'] = []
+    device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
+    ser = serial.Serial(device, 115200, timeout=1)
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
+    ser.write(b't')
+    
+    while not(stop_thread):
+        if ser.in_waiting:
+            inbytes = ser.read(22)
+            count = int.from_bytes(inbytes[:4], 'big')
+            mytime = int.from_bytes(inbytes[4:8], 'big')
+            temp = int.from_bytes(inbytes[8:10], 'big')
+            lmeas = [int.from_bytes(inbytes[10+2*i:12+2*i], 'big') for i in range(number_of_channels)]
+            v5 = int.from_bytes(inbytes[14:16], 'big')
+            PS = int.from_bytes(inbytes[16:18], 'big')
+            vminus15 = int.from_bytes(inbytes[18:20], 'big')
+            vref = int.from_bytes(inbytes[20:22], 'big')
+            times.append(mytime)
+            counts.append(count)
+            temps.append(temp)
+            v5s.append(v5)
+            vminus15s.append(vminus15)
+            vrefs.append(vref)
+            
+            for meas, dch in zip(lmeas, lchs):
+                dch['meas'].append(meas)
+            
+            print (count,
+                   mytime,
+                   (temp & 0xFFF)/16,
+                   '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
+                   '%.4f' %(lmeas[1] * -24.576/65535 + 12.288),
+                   '%.4f' %(v5 * 0.1875/1000),
+                   '%.4f' %(PS * 0.1875*16.39658/1000),
+                   '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
+                   '%.4f' %(vref * 0.0625/1000))
+    ser.close()
+    df1 = pd.DataFrame({'time':times,'test':counts, 'temp':temps,
+                         '5V':v5s, '-15V':vminus15s, 'vRef': vrefs})
+    df2 = pd.DataFrame({'ch%sc' %i:lchs[i]['meas'] for i in range(number_of_channels)})
+    df = pd.concat([df1, df2], axis=1)
+    df.to_csv('rawdata/default.csv')
 
 #emulator
 '''def sender():
@@ -187,119 +120,62 @@ class MainApp(MDApp):
         self.title = 'Blue Physics v.10.0'
         self.icon = 'images/logoonlyspheretransparent.png'
         self.graphchs = MyGraph()
-        self.graphvolts = {'Temp':MyGraph(), 'PS':MyGraph(),
-                           'refV':MyGraph(), '5V':MyGraph(),
-                           '-12V':MyGraph()}
-        for key in self.graphvolts.keys():
-            self.graphvolts[key].add_plot(dvolts[key].plot)
-            dvolts[key].graph = self.graphvolts[key]
-        dvolts['Temp'].graph.ylabel = 'Temp (C)'
         self.measlayout = self.root.ids.measurescreenlayout
         self.measlayout.add_widget(self.graphchs)
-        for ch in dchs.values():
-            self.graphchs.add_plot(ch.plot)
-            ch.graph = self.graphchs
+        
+        for dch in lchs:
+            self.graphchs.add_plot(dch['plot'])
+            
         self.contentsheet = Factory.ContentCustomSheet()
 
 
     def start(self):
-        #emulator
-        #global stop_thread
-        
-        self.graphchs.xmax = 10
 
-        for ch in dchs.values():
-            ch.reset()
-        for chv in dvolts.values():
-            chv.reset()
-        
+        global stop_thread
+ 
         #emulator
-        #stop_thread = False
         #self.sender_thread = Thread(target=sender)
         #self.sender_thread.daemon = True
         #self.sender_thread.start()
         
-        #no emulator
-        device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-        self.ser = serial.Serial(device, 250000, timeout=1)
-        self.ser.write(b't')
+        stop_thread = False
+        self.root.ids.checkboxlevel1.disabled = True
+        self.root.ids.checkboxlevel2.disabled = True
+        self.root.ids.checkboxlevel3.disabled = True
+        self.root.ids.checkboxlevel4.disabled = True
+        self.receiver_thread = Thread(target=receiver)
+        self.receiver_thread.daemon = True
+        self.receiver_thread.start()
         
+        self.event1 = Clock.schedule_interval(self.updategraphs, 0.5)
+
         #emulator
         #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
-        
-        #self.firstupdate()
-        self.event1 = Clock.schedule_interval(self.update, 0.1)
-        self.event2 = Clock.schedule_interval(self.updategraph, 0.5)
 
 
     def stop(self):
         #emulator
-        #global stop_thread
-        
-        Clock.unschedule(self.event1)
-        Clock.unschedule(self.event2)
-        
+        global stop_thread
+        self.root.ids.checkboxlevel1.disabled = False
+        self.root.ids.checkboxlevel2.disabled = False
+        self.root.ids.checkboxlevel3.disabled = False
+        self.root.ids.checkboxlevel4.disabled = False
+
         #emulator
-        #stop_thread = True
+        stop_thread = True
         #self.sender_thread.join()
         
-        self.ser.close()
-        
+        Clock.unschedule(self.event1)
+    
         #emulator
         #print('sender_thread kiled')
 
-
-    def firstupdate(self):
-        lline = self.ser.readline().decode().strip().split(',')
-        for i in range(10):
-            lline = self.ser.readline().decode().strip().split(',')
-            if len(lline) == 4:
-                break
-            else:
-                print('error line', lline)
-        for ch in dchs.values():
-            ch.firstupdate(lline)
-        #for chv in dvolts.values():
-         #   chv.firstupdate(lline)
-
-
-
-    def firstupdate(self):
-        lline = self.ser.readline().decode().strip().split(',')
-        for i in range(10):
-            lline = self.ser.readline().decode().strip().split(',')
-            if len(lline) == 14:
-                break
-            else:
-                print('error line', lline)
-        for ch in dchs.values():
-            ch.firstupdate(lline)
-        for chv in dvolts.values():
-            chv.firstupdate(lline)
-
-    def update(self, dt):
-        lineas = self.ser.read(self.ser.in_waiting).decode().split('\r\n')
-        for linea in lineas:
-            lista = linea.split(',')
-            if (not('' in lista) and len(lista) == 4):
-                #print(lista)
-                for ch in dchs.values():
-
-                    ch.update(lista)
-
-        '''full_lines = full_line.split('\n')
-        all_llines = [line.split(',') for line in full_lines]
-        for lline in all_llines:
-            print (lline)
-            for ch in dchs.values():
-                ch.update(lline)
-            for chv in dvolts.values():
-                chv.update(lline)'''
-                
-    def updategraph(self, dt):
-        dchs['ch0'].updategraphch()
-        dchs['ch1'].updategraphch()
-
+    def updategraphs(self, dt):
+        self.graphchs.xmax = times[-1]/1000000
+        self.graphchs.xmin = self.graphchs.xmax - 1
+        for dch in lchs:
+            pointsnow = [(x/1000000, y * -24.576/65535 + 12.288) for (x,y) in zip(times[-741::30], dch['meas'][-741::30])]
+            dch['plot'].points = pointsnow
 
 
     def bottomsheet(self):
@@ -310,9 +186,9 @@ class MainApp(MDApp):
 
     def addremoveplot(self, intext, checkbox, value):
         if value:
-            self.graphchs.add_plot(dchs[intext].plot)
+            self.graphchs.add_plot(lchs[int(intext[-1])]['plot'])
         else:
-            self.graphchs.remove_plot(dchs[intext].plot)
+            self.graphchs.remove_plot(lchs[int(intext[-1])]['plot'])
 
 
     def addremovegraph(self, intext, checkbox, value):
@@ -326,6 +202,13 @@ class MainApp(MDApp):
 
     def callback(self):
         print ('oido')
+        
+    def onofflevel(self, intext, switch):
+        print ('Rango:', intext[-1])
+        device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
+        ser = serial.Serial(device, 115200, timeout=1)
+        ser.write(('c%s,' %intext[-1]).encode())
+        ser.close()
 
 
 
