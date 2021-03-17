@@ -35,7 +35,7 @@ float adc2V = 0.0000;
 float adc3V = 0.0000;
 
 int integral = 300;
-unsigned long integraltimemicros = 1300;
+unsigned long integraltimemicros = 700;
 int resettimemicros = 10;
 
 unsigned int countvolt = 1;
@@ -144,7 +144,7 @@ void setup() {
   digitalWrite (SHD_PS, HIGH);
 
   //Set the pot for the first time
-  setpot(365);
+  setpot(360);
   
 
   

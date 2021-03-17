@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from kivymd.app import MDApp
 from kivy.factory import Factory
 from kivymd.uix.bottomsheet import MDCustomBottomSheet
