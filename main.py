@@ -19,14 +19,17 @@ import pandas as pd
 
 class MyGraph(Graph):
 
+
     def __init__(self):
         super(MyGraph, self).__init__()
+
 
     def on_touch_down(self, touch):
         super(MyGraph, self).on_touch_down(touch)
         
         if not self.collide_point(*touch.pos):
             return
+            
             
         if touch.button == 'left':
             self.origx = touch.x
@@ -37,19 +40,43 @@ class MyGraph(Graph):
                 self.rect = Line(rectangle = (self.origx, self.origy, 0, 0))
             
         if touch.button == 'right':
-            self.xmax = 1
-            self.xmin = 0
-            self.ymax = 12
-            self.ymin = -12
+            self.xmax = self.xmaxorig
+            self.xmin = self.xminorig
+            self.ymax = self.ymaxorig
+            self.ymin = self.yminorig
+            
+        if touch.is_mouse_scrolling:
+            currentxdist = self.xmax - self.xmin
+            currentydist = self.ymax - self.ymin
+            zoom = 0.05
+            if touch.button == 'scrolldown':
+                self.xmax = self.xmax + currentxdist*zoom
+                self.xmin = self.xmin - currentxdist*zoom
+                self.ymax = self.ymax + currentydist*zoom
+                self.ymin = self.ymin - currentydist*zoom
+            if touch.button == 'scrollup':
+                self.xmax = self.xmax - currentxdist*zoom
+                self.xmin = self.xmin + currentxdist*zoom
+                self.ymax = self.ymax - currentydist*zoom
+                self.ymin = self.ymin + currentydist*zoom
+   
             
     def on_touch_move(self, touch):
+        
+        if not self.collide_point(*touch.pos):
+            return
+        
         if touch.button == 'left':
             self.rect.rectangle =  (self.origx, self.origy, touch.x - self.origx, touch.y - self.origy)
         
+        
     def on_touch_up(self, touch):
+        
+        if not self.collide_point(*touch.pos):
+            return
+        
         if touch.button == 'left':
             self.canvas.remove(self.rect)
-            self.xmin = self.origx
             (self.xmin, self.ymin) = self.to_data(self.origx, touch.y)
             (self.xmax, self.ymax) = self.to_data(touch.x, self.origy)
 
@@ -208,6 +235,11 @@ class MainApp(MDApp):
     
         #emulator
         #print('sender_thread kiled')
+        
+        self.graphchs.xmaxorig = self.graphchs.xmax
+        self.graphchs.xminorig = self.graphchs.xmin
+        self.graphchs.ymaxorig = self.graphchs.ymax
+        self.graphchs.yminorig = self.graphchs.ymin
 
     def updategraphs(self, dt):
         self.graphchs.xmax = times[-1]/1000000
