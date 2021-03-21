@@ -97,7 +97,9 @@ mcolors = [colors['Gray']['300'],
 number_of_channels = 2
 
 lchs = [{'name':'ch%s' %i,
-         'meas':[], 
+         'meas':[],
+         'measV':[],
+         'meastoplot':[], 
          'color':mcolors[i], 
          'plot': MeshLinePlot(color=get_color_from_hex(mcolors[i]))} for i in range(number_of_channels)]
 
@@ -113,6 +115,7 @@ def receiver():
     vrefs = []
     for dch in lchs:
         dch['meas'] = []
+        dch['measV'] = []
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
     ser = serial.Serial(device, 115200, timeout=1)
     ser.reset_input_buffer()
@@ -139,8 +142,9 @@ def receiver():
             
             for meas, dch in zip(lmeas, lchs):
                 dch['meas'].append(meas)
+                dch['measV'].append(meas * -24.576/65535 + 12.288)
             
-            print (count,
+            """print (count,
                    mytime,
                    (temp & 0xFFF)/16,
                    '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
@@ -148,7 +152,7 @@ def receiver():
                    '%.4f' %(v5 * 0.1875/1000),
                    '%.4f' %(PS * 0.1875*16.39658/1000),
                    '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
-                   '%.4f' %(vref * 0.0625/1000))
+                   '%.4f' %(vref * 0.0625/1000))"""
     ser.close()
     df1 = pd.DataFrame({'time':times,'test':counts, 'temp':temps,
                          '5V':v5s, '-15V':vminus15s, 'vRef': vrefs})
@@ -213,6 +217,17 @@ class MainApp(MDApp):
         self.receiver_thread.daemon = True
         self.receiver_thread.start()
         
+        #number of items grouped
+        
+        self.timestoplot  = []
+        for dch in lchs:
+            dch['meastoplot'] = []
+            
+        self.graphchs.xmin = 0
+        self.graphchs.xmax = 60
+        self.graphchs.ymin = 0
+        self.graphchs.ymax = 700
+        
         self.event1 = Clock.schedule_interval(self.updategraphs, 0.5)
 
         #emulator
@@ -242,11 +257,17 @@ class MainApp(MDApp):
         self.graphchs.yminorig = self.graphchs.ymin
 
     def updategraphs(self, dt):
-        self.graphchs.xmax = times[-1]/1000000
-        self.graphchs.xmin = self.graphchs.xmax - 1
-        for dch in lchs:
-            pointsnow = [(x/1000000, y * -24.576/65535 + 12.288) for (x,y) in zip(times[-741::30], dch['meas'][-741::30])]
-            dch['plot'].points = pointsnow
+        try:
+            timetoaddtoplot = times[-428:][0]/1000000
+            self.timestoplot.append(timetoaddtoplot)
+            if timetoaddtoplot > 60:
+                self.graphchs.xmax = timetoaddtoplot
+            
+            for dch in lchs:
+                dch['meastoplot'].append(sum(dch['measV'][-428:]))
+                dch['plot'].points = zip(self.timestoplot, dch['meastoplot'])
+        except IndexError:
+            pass
 
 
     def bottomsheet(self):
