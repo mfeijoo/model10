@@ -21,7 +21,7 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 #define RAN_4 A0
 #define SHD_REF 9
 #define CS_POT 10
-#define PSFC 16.4362
+#define PSFC 16.39658
 #define testpin 13
 
 // For AD51115 powers
@@ -37,6 +37,8 @@ float adc3V = 0.0000;
 int integral = 300;
 unsigned long integraltimemicros = 700;
 int resettimemicros = 10;
+
+bool printtoconsole = false;
 
 unsigned int countvolt = 1;
 
@@ -224,7 +226,7 @@ void loop() {
         adc.setVoltageRange_mV(ADS1115_RANGE_6144);
         break;
        case 21:
-        //temp = tempsensor.readTempC();
+        temp = tempsensor.readTempC();
         tempbytes = tempsensor.read16(0x05);
         arraytosend[8] = tempbytes >> 8;
         arraytosend[9] = tempbytes & 0xFF;
@@ -287,8 +289,19 @@ void loop() {
       delay(500);
     }
 
+    //PRINT TO CONSOLE
+    if (inChar == 'h'){
+      printtoconsole = true;
+    }
+
+    if (inChar == 'b'){
+      printtoconsole = false;
+    }
+
     //SUBTRACT DARK CURRENT
     if (inChar == 's'){
+     Serial.println("s preseed");
+     delay(1000);
      sdc();
     }
 
@@ -381,35 +394,38 @@ void ReadChannelsOnceandsend(){
     arraytosend[5] = (timesincestart >> 16) & (0xFF);
     arraytosend[6] = (timesincestart >> 8) & (0xFF);
     arraytosend[7] = timesincestart & 0xFF;
-    
-    Serial.write(arraytosend, 22);
-    
-    /*Serial.print(timesincestart);
-    Serial.print(",");
-    Serial.print(temp, 4);
-    Serial.print(",");
-    Serial.print(count);
-    Serial.print(",");
-    Serial.print(chb[0]);
-    Serial.print(",");
-    Serial.print(chb[1]);
-    Serial.print(",");
-    
-    //adc0 5V
-    Serial.print(adc0);
-    Serial.print(",");
-    //adc1 PS
-    Serial.print(adc1);
-    Serial.print(",");
-    //adc2 -15
-    Serial.print(adc2);
-    Serial.print(",");
-    //adc3 ref 1.25V
-    Serial.println(adc3);
-    //digitalWrite(testpin, LOW);*/
-    count = count + 1;
 
-  
+    if (printtoconsole){
+      Serial.print(count);
+      Serial.print(",");
+      Serial.print(timesincestart);
+      Serial.print(",");
+      Serial.print(temp, 4);
+      Serial.print(",");
+      Serial.print(chb[0]*-24.576/65535 + 12.288, 4);
+      Serial.print(",");
+      Serial.print(chb[1]*-24.576/65535 + 12.288, 4);
+      Serial.print(",");
+      
+      //adc0 5V
+      Serial.print(adc0*0.1875/1000, 4);
+      Serial.print(",");
+      //adc1 PS
+      Serial.print(adc1*0.1875*16.39658/1000, 4);
+      Serial.print(",");
+      //adc2 -15
+      Serial.print(adc2*0.1875*-4.6887/1000, 4);
+      Serial.print(",");
+      //adc3 ref 1.25V
+      Serial.println(adc3*0.0625/1000, 4);
+    }
+    else{
+      Serial.write(arraytosend, 22);
+    }
+
+    
+    //digitalWrite(testpin, LOW);
+    count = count + 1;
 }
 
 void ReadChannelsOnce() {
@@ -448,7 +464,7 @@ void regulatePS(){
   //pothigh = 1023;
   potnow = 320;
   setpot(potnow);
-  delay (1000);
+  //delay (1000);
   readPS();
 
 
@@ -492,8 +508,8 @@ void readPS(){
   adc.setVoltageRange_mV(ADS1115_RANGE_6144);
   adc.setCompareChannels(ADS1115_COMP_1_GND);
   adc.startSingleMeasurement();
-  while(adc.isBusy()){}
-  PSV = adc.getResult_V() * 16.39658;
+  delay(1000);
+  PSV = adc.getResult_V() * PSFC;
 }
 
 void setpot(int x) {
@@ -510,6 +526,7 @@ void setpot(int x) {
 
 //function to substract dark current
 void sdc(){
+  Serial.println("Subtract Dark Current initiated");
   unsigned int dccount = 65534;
   setvoltdc(0, dccount);
   delay(1);
