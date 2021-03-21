@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from kivymd.app import MDApp
+from kivy.graphics import Line, Rectangle, Color
 from kivy.factory import Factory
 from kivymd.uix.bottomsheet import MDCustomBottomSheet
 from kivy.utils import get_color_from_hex
@@ -13,8 +14,33 @@ import time
 import math
 import pandas as pd
 
+
 class MyGraph(Graph):
-    pass
+
+    def __init__(self):
+        super(MyGraph, self).__init__()
+
+    def on_touch_down(self, touch):
+        super(MyGraph, self).on_touch_down(touch)
+        
+        if not self.collide_point(*touch.pos):
+            return
+            
+        self.origx = touch.x
+        self.origy = touch.y - 10
+        
+        with self.canvas:
+            Color(1,0,0,0.5)
+            self.rect = Line(rectangle = (self.origx, self.origy, 0, 0))
+            
+    def on_touch_move(self, touch):
+        self.rect.rectangle =  (self.origx, self.origy, touch.x - self.origx, touch.y - self.origy)
+        
+    def on_touch_up(self, touch):
+        self.canvas.remove(self.rect)
+        
+
+
 
 
 mcolors = [colors['Gray']['300'],
