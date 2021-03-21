@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from kivy.config import Config
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 from kivymd.app import MDApp
 from kivy.graphics import Line, Rectangle, Color
 from kivy.factory import Factory
@@ -26,19 +28,30 @@ class MyGraph(Graph):
         if not self.collide_point(*touch.pos):
             return
             
-        self.origx = touch.x
-        self.origy = touch.y - 10
-        
-        with self.canvas:
-            Color(1,0,0,0.5)
-            self.rect = Line(rectangle = (self.origx, self.origy, 0, 0))
+        if touch.button == 'left':
+            self.origx = touch.x
+            self.origy = touch.y - 10
+            
+            with self.canvas:
+                Color(1,0,0,0.5)
+                self.rect = Line(rectangle = (self.origx, self.origy, 0, 0))
+            
+        if touch.button == 'right':
+            self.xmax = 1
+            self.xmin = 0
+            self.ymax = 12
+            self.ymin = -12
             
     def on_touch_move(self, touch):
-        self.rect.rectangle =  (self.origx, self.origy, touch.x - self.origx, touch.y - self.origy)
+        if touch.button == 'left':
+            self.rect.rectangle =  (self.origx, self.origy, touch.x - self.origx, touch.y - self.origy)
         
     def on_touch_up(self, touch):
-        self.canvas.remove(self.rect)
-        
+        if touch.button == 'left':
+            self.canvas.remove(self.rect)
+            self.xmin = self.origx
+            (self.xmin, self.ymin) = self.to_data(self.origx, touch.y)
+            (self.xmax, self.ymax) = self.to_data(touch.x, self.origy)
 
 
 
