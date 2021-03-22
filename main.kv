@@ -27,6 +27,26 @@
 	x_grid_label: True
 	y_grid_label: True
 
+<PulsesCheckBoxLabel@BoxLayout>:
+	text: 'pulses'
+	color: mcolor5
+	size_hint: None, None
+	size: self.minimum_size
+	active: pulsecheckbox.active
+	MDCheckbox:
+		id: pulsecheckbox
+		color: root.color
+		size_hint: None, None
+		size: 40, 40
+		selected_color: root.color
+		unselected_color: root.color
+		active: True
+	MDLabel:
+		size_hint: None, None
+		size: 60, 40
+		id: label
+		color: root.color
+		text: root.text
 
 <CheckBoxLabel@BoxLayout>:
 	text: 'ch'
@@ -51,8 +71,6 @@
 
 <CheckGroup@MDCheckbox>:
 	group: 'group1'
-
-
 
 
 <CheckBoxLabelGroup@BoxLayout>:
@@ -104,16 +122,19 @@
 		text: root.text
 
 
-<ContentCustomSheet@MDFloatLayout>:
-	size_hint_y: None
-	height: '100dp'
+<ContentCustomSheet@BoxLayout>:
+	size_hint: None, None
+	size:self.minimum_size
+	pos_hint: None, None
+	pos_hint: {'center_x':.5, 'center_y':.5}
+
 
 	MDGridLayout:
 		cols: 4
 		size_hint: None, None
 		size: self.minimum_size
-		pos_hint: None, None
-		pos_hint: {'center_x':.25, 'center_y':.5}
+		#pos_hint: None, None
+		#pos_hint: {'center_x':.25, 'center_y':.5}
 
 		CheckBoxLabel:
 			id: chb0
@@ -148,13 +169,18 @@
 			text: 'ch7'
 			color: mcolor7
 
+	PulsesCheckBoxLabel:
+		id: mypulsescheckbox
+		pos_hint_y: None
+		pos_hint_y:.5
+
 
 	MDGridLayout:
 		cols: 3
 		size_hint: None, None
 		size: self.minimum_size
-		pos_hint: None, None
-		pos_hint: {'center_x':.75, 'center_y':.5}
+		#pos_hint: None, None
+		#pos_hint: {'center_x':.80, 'center_y':.5}
 
 		CheckBoxLabelGroup:
 			text: 'None'
@@ -175,6 +201,7 @@
 		CheckBoxLabelGroup:
 			text: '5V'
 			color: mcolor4
+
 
 
 

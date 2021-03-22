@@ -197,6 +197,7 @@ class MainApp(MDApp):
             self.graphchs.add_plot(dch['plot'])
             
         self.contentsheet = Factory.ContentCustomSheet()
+        
 
 
     def start(self):
@@ -223,12 +224,28 @@ class MainApp(MDApp):
         for dch in lchs:
             dch['meastoplot'] = []
             
-        self.graphchs.xmin = 0
-        self.graphchs.xmax = 60
-        self.graphchs.ymin = 0
-        self.graphchs.ymax = 700
+        self.plotpulses = self.contentsheet.ids.mypulsescheckbox.active
         
-        self.event1 = Clock.schedule_interval(self.updategraphs, 0.5)
+        if (not self.plotpulses):
+            self.graphchs.xmin = 0
+            self.graphchs.xmax = 60
+            self.graphchs.x_ticks_major = 10
+            self.graphchs.x_ticks_minor = 5
+            self.graphchs.ymin = 0
+            self.graphchs.ymax = 700
+            self.graphchs.y_ticks_major = 100
+            self.graphchs.y_ticks_minor = 5
+            self.event1 = Clock.schedule_interval(self.updategraphs, 0.5)
+        else:
+            self.graphchs.xmin = 0
+            self.graphchs.xmax = 0.5
+            self.graphchs.x_ticks_major = 0.1
+            self.graphchs.x_ticks_minor = 5
+            self.graphchs.ymin = -12
+            self.graphchs.ymax = 12
+            self.graphchs.y_ticks_major = 1
+            self.graphchs.y_ticks_minor = 5
+            self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.5)
 
         #emulator
         #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
@@ -257,6 +274,7 @@ class MainApp(MDApp):
         self.graphchs.yminorig = self.graphchs.ymin
 
     def updategraphs(self, dt):
+        
         try:
             timetoaddtoplot = times[-428:][0]/1000000
             self.timestoplot.append(timetoaddtoplot)
@@ -269,7 +287,18 @@ class MainApp(MDApp):
         except IndexError:
             pass
 
-
+    def updategraphpulses(self, dt):
+        try:
+            timestoplot = [t/1000000 for t in times[-714:]]
+            self.graphchs.xmin = timestoplot[0]
+            self.graphchs.xmax = timestoplot[-1]
+            #print (min(timestoplot), max(lchs[1]['measV'][-714:]))
+            for dch in lchs:
+                dch['plot'].points = zip(timestoplot, dch['measV'][-714:])
+        except IndexError:
+            pass
+    
+    
     def bottomsheet(self):
         self.custom_sheet = MDCustomBottomSheet(screen=self.contentsheet,
                                                 radius_from='top')
@@ -290,6 +319,7 @@ class MainApp(MDApp):
                 self.measlayout.add_widget(self.graphvolts[intext])
             else:
                 self.measlayout.remove_widget(self.graphvolts[intext])
+        
 
 
     def callback(self):
