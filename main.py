@@ -20,8 +20,8 @@ import pandas as pd
 class MyGraph(Graph):
 
 
-    def __init__(self):
-        super(MyGraph, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(MyGraph, self).__init__(*args, **kwargs)
 
 
     def on_touch_down(self, touch):
@@ -102,10 +102,12 @@ lchs = [{'name':'ch%s' %i,
          'meastoplot':[], 
          'color':mcolors[i], 
          'plot': MeshLinePlot(color=get_color_from_hex(mcolors[i]))} for i in range(number_of_channels)]
+         
+
 
 
 def receiver():
-    global stop_thread, times
+    global stop_thread, times, temps, v5s, PSs, vminus15s, vrefs
     times = []
     counts = []
     temps = []
@@ -136,6 +138,7 @@ def receiver():
             times.append(mytime)
             counts.append(count)
             temps.append(temp)
+            PSs.append(PS)
             v5s.append(v5)
             vminus15s.append(vminus15)
             vrefs.append(vref)
@@ -190,11 +193,36 @@ class MainApp(MDApp):
         self.title = 'Blue Physics v.10.0'
         self.icon = 'images/logoonlyspheretransparent.png'
         self.graphchs = MyGraph()
+        self.graphvolts = {'Temp': MyGraph(ylabel = 'Temp. (C)',
+                                           ymin = 22,
+                                           ymax = 30),
+                           'PS': MyGraph(ylabel='PS (V)',
+                                         ymin=50,
+                                         ymax=65),
+                           '5V': MyGraph(ylabel='5V (V)',
+                                         ymin=4,
+                                         ymax=6),
+                           '-15V': MyGraph(ylabel='-15V (V)',
+                                           ymin=-16,
+                                           ymax=-14),
+                           'refV': MyGraph(ylabel='ref. (V)',
+                                           ymin=0,
+                                           ymax=2)}
         self.measlayout = self.root.ids.measurescreenlayout
         self.measlayout.add_widget(self.graphchs)
         
         for dch in lchs:
             self.graphchs.add_plot(dch['plot'])
+        self.tempplot = MeshLinePlot(color=get_color_from_hex(mcolors[8]))
+        self.PSplot = MeshLinePlot(color=get_color_from_hex(mcolors[1]))
+        self.v5Vplot = MeshLinePlot(color=get_color_from_hex(mcolors[4]))
+        self.minus15Vplot = MeshLinePlot(color=get_color_from_hex(mcolors[3]))
+        self.refVplot = MeshLinePlot(color=get_color_from_hex(mcolors[2]))
+        self.graphvolts['Temp'].add_plot(self.tempplot)
+        self.graphvolts['PS'].add_plot(self.PSplot)
+        self.graphvolts['5V'].add_plot(self.v5Vplot)
+        self.graphvolts['-15V'].add_plot(self.minus15Vplot)
+        self.graphvolts['refV'].add_plot(self.refVplot)
             
         self.contentsheet = Factory.ContentCustomSheet()
         
@@ -223,6 +251,11 @@ class MainApp(MDApp):
         self.timestoplot  = []
         for dch in lchs:
             dch['meastoplot'] = []
+        self.listatemptoplot = []
+        self.listapstoplot = []
+        self.listarefvtoplot = []
+        self.listaminus15vtoplot = []
+        self.listav5vtoplot = []
             
         self.plotpulses = self.contentsheet.ids.mypulsescheckbox.active
         
@@ -272,18 +305,36 @@ class MainApp(MDApp):
         self.graphchs.xminorig = self.graphchs.xmin
         self.graphchs.ymaxorig = self.graphchs.ymax
         self.graphchs.yminorig = self.graphchs.ymin
+        
+        
 
     def updategraphs(self, dt):
-        
         try:
             timetoaddtoplot = times[-428:][0]/1000000
             self.timestoplot.append(timetoaddtoplot)
             if timetoaddtoplot > 60:
                 self.graphchs.xmax = timetoaddtoplot
+                self.graphvolts['Temp'].xmax = timetoaddtoplot
+                self.graphvolts['PS'].xmax = timetoaddtoplot
+                self.graphvolts['-15V'].xmax = timetoaddtoplot
+                self.graphvolts['5V'].xmax = timetoaddtoplot
+                self.graphvolts['refV'].xmax = timetoaddtoplot
             
             for dch in lchs:
                 dch['meastoplot'].append(sum(dch['measV'][-428:]))
                 dch['plot'].points = zip(self.timestoplot, dch['meastoplot'])
+            self.listatemptoplot.append((temps[-1] & 0xFFF) / 16)
+            self.tempplot.points = zip(self.timestoplot, self.listatemptoplot)
+            self.listapstoplot.append(PSs[-1] * 0.1875 * 16.39658 / 1000)
+            self.PSplot.points = zip(self.timestoplot, self.listapstoplot)
+            self.listarefvtoplot.append(vrefs[-1]  * 0.0625/1000)
+            self.refVplot.points = zip(self.timestoplot, self.listarefvtoplot)
+            self.listaminus15vtoplot.append(vminus15s[-1] * 0.1875*-4.6887/1000)
+            self.minus15Vplot.points = zip(self.timestoplot, self.listaminus15vtoplot)
+            self.listav5vtoplot.append(v5s[-1] * 0.1875/1000)
+            self.v5Vplot.points = zip(self.timestoplot, self.listav5vtoplot)
+            #print(self.listapstoplot[-1])
+
         except IndexError:
             pass
 
@@ -313,7 +364,7 @@ class MainApp(MDApp):
 
 
     def addremovegraph(self, intext, checkbox, value):
-        print (intext, checkbox, value)
+        #print (intext, checkbox, value)
         if intext != 'None':
             if value:
                 self.measlayout.add_widget(self.graphvolts[intext])
