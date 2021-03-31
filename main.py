@@ -14,6 +14,7 @@ import serial.tools.list_ports
 from threading import Thread
 import time
 import math
+import numpy as np
 import pandas as pd
 
 
@@ -93,31 +94,66 @@ mcolors = [colors['Gray']['300'],
            colors['Red']['A400'],
            colors['Red']['900']]
           
-        
+
 number_of_channels = 2
 
-lchs = [{'name':'ch%s' %i,
-         'meas':[],
-         'measV':[],
-         'meastoplot':[], 
-         'color':mcolors[i], 
-         'plot': MeshLinePlot(color=get_color_from_hex(mcolors[i]))} for i in range(number_of_channels)]
-         
-
+#Function to clean up pulses
+#Also to add two consecutive pulses
+#in case to reseve capacitor
+#input a raw data ndarray of times x
+#and raw data of ndarray measurements ys
+def cleanpulses(x, ys):
+        #pulses clean up
+        #find ch with maximum
+        chwithmax = np.argmax(np.max(ys, axis=0))
+        #find pulses
+        #Find the maximum value at not pulse (visualizing 1.10)
+        maxvalueatnolight = 1.7
+        pulses = ys[:,chwithmax] > maxvalueatnolight
+        #shift pulses down
+        pulsesshift1 = np.append(np.array([False]), pulses[:-1])
+        #find where two pulses coincide
+        secondcoincides = pulses & pulsesshift1
+        #number_of_pulses_coinciding = secondcoincides.sum()
+        #Make a copy of the original array of measurements and call it
+        #second pulses
+        achsc = ys.copy()
+        #Put zeros in all values of that copy that don't have a
+        #coincide pulse
+        achsc[~secondcoincides] = 0
+        #Shift that new array to move the values of the second coincides
+        #to match the first coincide
+        achscs = np.row_stack((achsc[1:], np.zeros(number_of_channels)))
+        #sum the second coincide with the first coincide only AND
+        #eliminate the second coincides rows. It creates an array of
+        #only the pulses and with the two pulses coinciding added
+        #added together. This is called a1nc
+        achnc = (ys + achscs)[~secondcoincides]
+        #Find the maximum value at not pulse (visualizing 1.10)
+        #Find wehre we have only pulses
+        onlypulses = achnc[:,chwithmax] > maxvalueatnolight
+        #We can now calculate the number of pulses
+        #number_of_pulses = onlypulses.sum()
+        #Now we can find the value before and after each pulse and
+        achbeforepulse = np.row_stack((achnc[1:], np.zeros(number_of_channels)))
+        achafterpulse = np.row_stack((np.zeros(number_of_channels), achnc[:-1]))
+        #We subtract the value of each pulse with the avarge of the value
+        #before and after. It will give you the value of the increase of
+        #each pulse
+        nachnc = np.abs(achnc - (achbeforepulse + achafterpulse)/2)
+        #We put zeros in each value that are not pulses
+        nachnc[~onlypulses]=0
+        #Calculate the totaldoses
+        #totaldoses = nachnc.sum() #array
+        #Calculate the times without coincidences
+        xnc = x[~secondcoincides]
+        return xnc, nachnc
 
 
 def receiver():
-    global stop_thread, times, temps, v5s, PSs, vminus15s, vrefs
-    times = []
-    counts = []
-    temps = []
-    v5s = []
-    PSs = []
-    vminus15s = []
-    vrefs = []
-    for dch in lchs:
-        dch['meas'] = []
-        dch['measV'] = []
+    global la
+    #da = np.zeros((1, 7+number_of_channels), dtype=int)
+    la = []
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
     ser = serial.Serial(device, 115200, timeout=1)
     ser.reset_input_buffer()
@@ -130,24 +166,18 @@ def receiver():
             count = int.from_bytes(inbytes[:4], 'big')
             mytime = int.from_bytes(inbytes[4:8], 'big')
             temp = int.from_bytes(inbytes[8:10], 'big')
-            lmeas = [int.from_bytes(inbytes[10+2*i:12+2*i], 'big') for i in range(number_of_channels)]
-            v5 = int.from_bytes(inbytes[14:16], 'big')
-            PS = int.from_bytes(inbytes[16:18], 'big')
-            vminus15 = int.from_bytes(inbytes[18:20], 'big')
-            vref = int.from_bytes(inbytes[20:22], 'big')
-            times.append(mytime)
-            counts.append(count)
-            temps.append(temp)
-            PSs.append(PS)
-            v5s.append(v5)
-            vminus15s.append(vminus15)
-            vrefs.append(vref)
+            v5 = int.from_bytes(inbytes[10:12], 'big')
+            PS = int.from_bytes(inbytes[12:14], 'big')
+            vminus15 = int.from_bytes(inbytes[14:16], 'big')
+            vref = int.from_bytes(inbytes[16:18], 'big')
+            lmeas = [int.from_bytes(inbytes[18+2*i:20+2*i], 'big') for i in range(number_of_channels)]
             
-            for meas, dch in zip(lmeas, lchs):
-                dch['meas'].append(meas)
-                dch['measV'].append(meas * -24.576/65535 + 12.288)
+            la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
+            #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])
+            #da = np.append(da, atoadd, axis=0)
             
-            """print (count,
+            
+            print (count,
                    mytime,
                    (temp & 0xFFF)/16,
                    '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
@@ -155,12 +185,9 @@ def receiver():
                    '%.4f' %(v5 * 0.1875/1000),
                    '%.4f' %(PS * 0.1875*16.39658/1000),
                    '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
-                   '%.4f' %(vref * 0.0625/1000))"""
+                   '%.4f' %(vref * 0.0625/1000))
     ser.close()
-    df1 = pd.DataFrame({'time':times,'test':counts, 'temp':temps,
-                         '5V':v5s, '-15V':vminus15s, 'vRef': vrefs})
-    df2 = pd.DataFrame({'ch%sc' %i:lchs[i]['meas'] for i in range(number_of_channels)})
-    df = pd.concat([df1, df2], axis=1)
+    df = pd.DataFrame(la, columns=['counts', 'time', 'temp', '5V', 'PS', '-15V', 'ref'] + ['ch%sc' %i for i in range(number_of_channels)])
     df.to_csv('rawdata/default.csv')
 
 #emulator
@@ -210,9 +237,10 @@ class MainApp(MDApp):
                                            ymax=2)}
         self.measlayout = self.root.ids.measurescreenlayout
         self.measlayout.add_widget(self.graphchs)
-        
-        for dch in lchs:
-            self.graphchs.add_plot(dch['plot'])
+        # Lista ch plots
+        self.lchplots = [MeshLinePlot(color=get_color_from_hex(mcolors[i])) for i in range(number_of_channels)]
+        for plot in self.lchplots:
+            self.graphchs.add_plot(plot)
         self.tempplot = MeshLinePlot(color=get_color_from_hex(mcolors[8]))
         self.PSplot = MeshLinePlot(color=get_color_from_hex(mcolors[1]))
         self.v5Vplot = MeshLinePlot(color=get_color_from_hex(mcolors[4]))
@@ -245,17 +273,8 @@ class MainApp(MDApp):
         self.receiver_thread = Thread(target=receiver)
         self.receiver_thread.daemon = True
         self.receiver_thread.start()
+        time.sleep(0.5)
         
-        #number of items grouped
-        
-        self.timestoplot  = []
-        for dch in lchs:
-            dch['meastoplot'] = []
-        self.listatemptoplot = []
-        self.listapstoplot = []
-        self.listarefvtoplot = []
-        self.listaminus15vtoplot = []
-        self.listav5vtoplot = []
             
         self.plotpulses = self.contentsheet.ids.mypulsescheckbox.active
         
@@ -264,21 +283,21 @@ class MainApp(MDApp):
             self.graphchs.xmax = 60
             self.graphchs.x_ticks_major = 10
             self.graphchs.x_ticks_minor = 5
-            self.graphchs.ymin = 0
-            self.graphchs.ymax = 700
+            self.graphchs.ymin = -10
+            self.graphchs.ymax = 400
             self.graphchs.y_ticks_major = 100
-            self.graphchs.y_ticks_minor = 5
-            self.event1 = Clock.schedule_interval(self.updategraphs, 0.5)
+            self.graphchs.y_ticks_minor = 10
+            self.acum = np.zeros((1, 1+number_of_channels))
+            self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
             self.graphchs.xmin = 0
             self.graphchs.xmax = 0.5
-            self.graphchs.x_ticks_major = 0.1
-            self.graphchs.x_ticks_minor = 5
-            self.graphchs.ymin = -12
-            self.graphchs.ymax = 12
+            self.graphchs.ymin = -6
+            self.graphchs.ymax = 6
             self.graphchs.y_ticks_major = 1
-            self.graphchs.y_ticks_minor = 5
-            self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.5)
+            self.graphchs.y_ticks_minor = 10
+            self.plotcounter = 0
+            self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
 
         #emulator
         #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
@@ -305,51 +324,42 @@ class MainApp(MDApp):
         self.graphchs.xminorig = self.graphchs.xmin
         self.graphchs.ymaxorig = self.graphchs.ymax
         self.graphchs.yminorig = self.graphchs.ymin
-        
+
         
 
     def updategraphs(self, dt):
-        try:
-            timetoaddtoplot = times[-428:][0]/1000000
-            self.timestoplot.append(timetoaddtoplot)
-            if timetoaddtoplot > 60:
-                self.graphchs.xmax = timetoaddtoplot
-                self.graphvolts['Temp'].xmax = timetoaddtoplot
-                self.graphvolts['PS'].xmax = timetoaddtoplot
-                self.graphvolts['-15V'].xmax = timetoaddtoplot
-                self.graphvolts['5V'].xmax = timetoaddtoplot
-                self.graphvolts['refV'].xmax = timetoaddtoplot
-            
-            for dch in lchs:
-                dch['meastoplot'].append(sum(dch['measV'][-428:]))
-                dch['plot'].points = zip(self.timestoplot, dch['meastoplot'])
-            self.listatemptoplot.append((temps[-1] & 0xFFF) / 16)
-            self.tempplot.points = zip(self.timestoplot, self.listatemptoplot)
-            self.listapstoplot.append(PSs[-1] * 0.1875 * 16.39658 / 1000)
-            self.PSplot.points = zip(self.timestoplot, self.listapstoplot)
-            self.listarefvtoplot.append(vrefs[-1]  * 0.0625/1000)
-            self.refVplot.points = zip(self.timestoplot, self.listarefvtoplot)
-            self.listaminus15vtoplot.append(vminus15s[-1] * 0.1875*-4.6887/1000)
-            self.minus15Vplot.points = zip(self.timestoplot, self.listaminus15vtoplot)
-            self.listav5vtoplot.append(v5s[-1] * 0.1875/1000)
-            self.v5Vplot.points = zip(self.timestoplot, self.listav5vtoplot)
-            #print(self.listapstoplot[-1])
+        an = np.array(la[-429:])
+        means = an[:,1:7].mean()
+        x = an[:,1]/1000000
+        ys = an[:,7:] * -24.576/65535 + 12.288
+        xn, ysn = cleanpulses(x, ys)
+        tnow = x[0]
+        if self.graphchs.xmax < tnow:
+            self.graphchs.xmax = float(tnow)
+            #self.graphchs.xmin = float(timescumnow) - 60
+        #datacum = ys.sum(axis=0)
+        datacum = ysn.sum(axis=0)
+        datatoadd = np.append(tnow, datacum)
+        print(datatoadd)
+        self.acum = np.vstack((self.acum, datatoadd))
+        self.lchplots[0].points = self.acum[1:,[0,1]]
+        self.lchplots[1].points = self.acum[1:,[0,2]]
 
-        except IndexError:
-            pass
 
     def updategraphpulses(self, dt):
-        try:
-            timestoplot = [t/1000000 for t in times[-714:]]
-            self.graphchs.xmin = timestoplot[0]
-            self.graphchs.xmax = timestoplot[-1]
-            #print (min(timestoplot), max(lchs[1]['measV'][-714:]))
-            for dch in lchs:
-                dch['plot'].points = zip(timestoplot, dch['measV'][-714:])
-        except IndexError:
-            pass
-    
-    
+        an = np.array(la[-429:])
+        x = (an[:,0]/1000000)
+        PS = an[:,4] * 0.1875*16.39658/1000
+        ys = an[:,7:] * -24.576/65535 + 12.288
+        xnc, nachnc = cleanpulses(x, ys)
+        ann = np.column_stack((x, ys))
+        #ann = np.column_stack((xnc, nachnc))
+        self.graphchs.xmin = float(x[0])
+        self.graphchs.xmax = float(x[-1])
+        #self.lchplots[0].points = ann[:,[0,1]]
+        #self.lchplots[1].points = ann[:,[0,2]]
+        #print(PS[0])
+
     def bottomsheet(self):
         self.custom_sheet = MDCustomBottomSheet(screen=self.contentsheet,
                                                 radius_from='top')

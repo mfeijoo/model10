@@ -20,7 +20,7 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 #define RAN_3 A1
 #define RAN_4 A0
 #define SHD_REF 9
-#define CS_POT 10
+//#define CS_POT 10
 #define PSFC 16.39658
 #define testpin 13
 
@@ -48,10 +48,10 @@ unsigned long integralmicros = 0;
 unsigned long startmicros = 0;
 unsigned long count = 0;
 
-//pot value in counts from 0 to 1023
-int potlow;
-int pothigh;
-int potnow = 1;
+//dac value in counts from 0 to 65535
+int daclow;
+int dachigh;
+int dacnow = 1;
 
 float setvolt = 56.56;
 float PSV;
@@ -88,7 +88,7 @@ void setup() {
   pinMode(RAN_3, OUTPUT);
   pinMode(RAN_4, OUTPUT);
   pinMode(SHD_REF, OUTPUT);
-  pinMode(CS_POT, OUTPUT);
+  //pinMode(CS_POT, OUTPUT);
   pinMode(testpin, OUTPUT);
 
   digitalWrite(CS_ADQ0, HIGH);
@@ -101,14 +101,14 @@ void setup() {
   digitalWrite(RAN_2, LOW);
   digitalWrite(RAN_3, HIGH);
   digitalWrite(RAN_4, LOW);
-  digitalWrite(CS_POT, HIGH);
+  //digitalWrite(CS_POT, HIGH);
   
 
   Serial.begin(115200);
   Wire.begin();
   SPI.begin();
 
-  //Turn on the reference of the DAC
+  //Turn on the reference of the dark current DAC
   Wire.beginTransmission(0x0F);
   Wire.write(0x38);
   Wire.write(0x0);
@@ -127,27 +127,19 @@ void setup() {
 
   Wire.setClock(400000);
 
-  //Settting the newPOT for the first time
-  //newpotcount = (int)(((4020/(setvolt - 10)) - 80)*102.3);
-  //newpotcount = 400;
-  SPI.beginTransaction(SPISettings(50000000, MSBFIRST, SPI_MODE1));
-  //Remove protection from the new potentiometer
-  digitalWrite(CS_POT, LOW);
-  SPI.transfer16(0x1c02);
-  digitalWrite(CS_POT, HIGH);
-  SPI.endTransaction();
+  //Set the PS DAC to devide by 2 and multiply by 1
+  //the internal reference of 2.5 V to get 1.25 V
+  Wire.beginTransmission(0x4b);
+  Wire.write(0x4); //comand byte Gain register
+  Wire.write(0x1); //devide by 2
+  Wire.write(0x0); //multiply by 1
+  Wire.endTransmission();
 
-  //wait 100 milliseconds and turn on the reference
-  delay(100);
-  digitalWrite(SHD_REF, HIGH);
+  //digitalWrite(SHD_REF, HIGH);
   
   //Then wait 2 seconds and turn on the Power Suplly
   delay(2000);
-  digitalWrite (SHD_PS, HIGH);
-
-  //Set the pot for the first time
-  setpot(360);
-  
+  digitalWrite (SHD_PS, LOW);
 
   
   //Set range of all channels to +-3 * Vref
@@ -166,6 +158,7 @@ void setup() {
   //regulatePS(); //at the begining regulate PS
   //sdc(); //at the begining subtract dark current
   //setpot(700);
+  setPSDAC(55300);
 
   adc.setConvRate(ADS1115_860_SPS);
   adc.setVoltageRange_mV(ADS1115_RANGE_6144);
@@ -185,8 +178,8 @@ void loop() {
         break;
        case 3:
         adc0 = adc.getRawResult();
-        arraytosend[14] = adc0 >> 8;
-        arraytosend[15] = adc0 & 0xFF;
+        arraytosend[10] = adc0 >> 8;
+        arraytosend[11] = adc0 & 0xFF;
         //adc0V = adc.getResult_V();
         break;
        case 5:
@@ -195,8 +188,8 @@ void loop() {
         break;
        case 7:
         adc1 = adc.getRawResult();
-        arraytosend[16] = adc1 >> 8;
-        arraytosend[17] = adc1 & 0xFF;
+        arraytosend[12] = adc1 >> 8;
+        arraytosend[13] = adc1 & 0xFF;
         //adc1V = adc.getResult_V();
         break;
        case 9:
@@ -205,8 +198,8 @@ void loop() {
         break;
        case 11:
         adc2 = adc.getRawResult();
-        arraytosend[18] = adc2 >> 8;
-        arraytosend[19] = adc2 & 0xFF;
+        arraytosend[14] = adc2 >> 8;
+        arraytosend[15] = adc2 & 0xFF;
         //adc2V = adc.getResult_V();
         break;
        case 13:
@@ -218,8 +211,8 @@ void loop() {
         break;
        case 17:
         adc3 = adc.getRawResult();
-        arraytosend[20] = adc3 >> 8;
-        arraytosend[21] = adc3 & 0xFF;
+        arraytosend[16] = adc3 >> 8;
+        arraytosend[17] = adc3 & 0xFF;
         //adc3V = adc.getResult_V();
         break;
        case 19:
@@ -305,12 +298,15 @@ void loop() {
      sdc();
     }
 
-    //SET POT MANUALLY use int from 0 to 1024
+    //SET DAC MANUALLY use int from 0 to 65535
     if (inChar == 'p'){
       String stringsetpotcounts = Serial.readStringUntil(',');
       char comma = Serial.read();
-      int setpotcounts = stringsetpotcounts.toInt();
-      setpot(setpotcounts);
+      int setdaccounts = stringsetpotcounts.toInt();
+      Serial.print("Set DAC to ");
+      Serial.println(setdaccounts);
+      delay(1000);
+      setPSDAC(setdaccounts);
     }
 
     //RESTART MICROSECONDS CLOCK
@@ -369,10 +365,10 @@ void ReadChannels() {
   digitalWrite(CS_ADQ1, HIGH);
   SPI.endTransaction();
 
-  arraytosend[10] = chb[0] >> 8;
-  arraytosend[11] = chb[0] & 0xFF;
-  arraytosend[12] = chb[1] >> 8;
-  arraytosend[13] = chb[1] & 0xFF;
+  arraytosend[18] = chb[0] >> 8;
+  arraytosend[19] = chb[0] & 0xFF;
+  arraytosend[20] = chb[1] >> 8;
+  arraytosend[21] = chb[1] & 0xFF;
 
   //chv[0] = -(chb[0] * 24.576/65535) + 12.288;
   //chv[1] = -(chb[1] * 24.576/65535) + 12.288;
@@ -402,10 +398,6 @@ void ReadChannelsOnceandsend(){
       Serial.print(",");
       Serial.print(temp, 4);
       Serial.print(",");
-      Serial.print(chb[0]*-24.576/65535 + 12.288, 4);
-      Serial.print(",");
-      Serial.print(chb[1]*-24.576/65535 + 12.288, 4);
-      Serial.print(",");
       
       //adc0 5V
       Serial.print(adc0*0.1875/1000, 4);
@@ -417,7 +409,12 @@ void ReadChannelsOnceandsend(){
       Serial.print(adc2*0.1875*-4.6887/1000, 4);
       Serial.print(",");
       //adc3 ref 1.25V
-      Serial.println(adc3*0.0625/1000, 4);
+      Serial.print(adc3*0.0625/1000, 4);
+
+      Serial.print(",");
+      Serial.print(chb[0]*-24.576/65535 + 12.288, 4);
+      Serial.print(",");
+      Serial.println(chb[1]*-24.576/65535 + 12.288, 4);
     }
     else{
       Serial.write(arraytosend, 22);
@@ -462,8 +459,8 @@ void regulatePS(){
   //measure PS once
   //potlow = 0;
   //pothigh = 1023;
-  potnow = 320;
-  setpot(potnow);
+  dacnow = 320;
+  setPSDAC(dacnow);
   //delay (1000);
   readPS();
 
@@ -479,24 +476,24 @@ void regulatePS(){
     //voltage is too high
     if (PSV > (setvolt + 0.008)){
       //pothigh = potnow;
-      potnow = potnow - 1;
+      dacnow = dacnow - 1;
     }
     //voltage is too low
     else if (PSV < (setvolt - 0.008)){
       //potlow = potnow;
-      potnow = potnow + 1;
+      dacnow = dacnow + 1;
     }
     //potnow = int((potlow + pothigh) / 2);
-    setpot(potnow);
+    setPSDAC(dacnow);
     readPS();
     Serial.print("setvolt,");
     Serial.print(setvolt, 2);
     //Serial.print(",pothigh,");
     //Serial.print(pothigh);
-    Serial.print(",potnow,");
-    Serial.print(potnow);
-    //Serial.print(",potlow,");
-    //Serial.print(potlow);
+    Serial.print(",dacnow,");
+    Serial.print(dacnow);
+    //Serial.print(",daclow,");
+    //Serial.print(daclow);
     Serial.print(",PS,");
     Serial.println(PSV, 4);
     //digitalWrite (ledpin, HIGH);
@@ -512,16 +509,13 @@ void readPS(){
   PSV = adc.getResult_V() * PSFC;
 }
 
-void setpot(int x) {
-  SPI.beginTransaction(SPISettings(50000000, MSBFIRST, SPI_MODE1));
-  //set the pot
-  digitalWrite(CS_POT, LOW);
-  SPI.transfer16(0x400 | x);
-  digitalWrite(CS_POT, HIGH);
-  SPI.endTransaction();
-  delay(1000);
+void setPSDAC(int x){
+  Wire.beginTransmission(0x4b);
+  Wire.write(0x8); //comand byte DAC DATA
+  Wire.write(x >> 8);
+  Wire.write(x & 0xFF);
+  Wire.endTransmission();
 }
-
 
 
 //function to substract dark current
