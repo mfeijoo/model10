@@ -97,18 +97,31 @@ mcolors = [colors['Gray']['300'],
 
 number_of_channels = 2
 
+arrmultip = np.array([1,
+                      1/1000000,
+                      1,
+                      0.1875/1000,
+                      0.1875*16.4372/1000,
+                      0.1875*-4.6887/1000,
+                      0.0625/1000,
+                      -24.576/65535,
+                      -24.576/65535])
+arrsum = np.array([0]*7+[12.288]*number_of_channels)
+
 #Function to clean up pulses
 #Also to add two consecutive pulses
 #in case to reseve capacitor
 #input a raw data ndarray of times x
 #and raw data of ndarray measurements ys
-def cleanpulses(x, ys):
+def cleanpulses(arr, maxvalueatnolight):
+        x = arr[:,:7]
+        ys = arr[:,7:]
         #pulses clean up
         #find ch with maximum
         chwithmax = np.argmax(np.max(ys, axis=0))
         #find pulses
         #Find the maximum value at not pulse (visualizing 1.10)
-        maxvalueatnolight = 1.7
+        #maxvalueatnolight = 1.7
         pulses = ys[:,chwithmax] > maxvalueatnolight
         #shift pulses down
         pulsesshift1 = np.append(np.array([False]), pulses[:-1])
@@ -147,7 +160,7 @@ def cleanpulses(x, ys):
         #totaldoses = nachnc.sum() #array
         #Calculate the times without coincidences
         xnc = x[~secondcoincides]
-        return xnc, nachnc
+        return np.column_stack((xnc, nachnc))
 
 
 def receiver():
@@ -158,11 +171,12 @@ def receiver():
     ser = serial.Serial(device, 115200, timeout=1)
     ser.reset_input_buffer()
     ser.reset_output_buffer()
-    ser.write(b't')
-    
+    ser.write(b't') #restart counting
+
     while not(stop_thread):
         if ser.in_waiting:
             inbytes = ser.read(22)
+            #line = ser.readline()
             count = int.from_bytes(inbytes[:4], 'big')
             mytime = int.from_bytes(inbytes[4:8], 'big')
             temp = int.from_bytes(inbytes[8:10], 'big')
@@ -175,19 +189,20 @@ def receiver():
             la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
             #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])
             #da = np.append(da, atoadd, axis=0)
-            
-            
-            print (count,
+        
+        
+            '''print (count,
                    mytime,
                    (temp & 0xFFF)/16,
-                   '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
-                   '%.4f' %(lmeas[1] * -24.576/65535 + 12.288),
                    '%.4f' %(v5 * 0.1875/1000),
-                   '%.4f' %(PS * 0.1875*16.39658/1000),
+                   '%.4f' %(PS * 0.1875*16.4372/1000),
                    '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
-                   '%.4f' %(vref * 0.0625/1000))
+                   '%.4f' %(vref * 0.0625/1000),
+                   '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
+                   '%.4f' %(lmeas[1] * -24.576/65535 + 12.288))'''
+
     ser.close()
-    df = pd.DataFrame(la, columns=['counts', 'time', 'temp', '5V', 'PS', '-15V', 'ref'] + ['ch%sc' %i for i in range(number_of_channels)])
+    df = pd.DataFrame(la, columns=['counts', 'time', 'ctemp', 'c5V', 'cPS', 'cminus15V', 'cref'] + ['ch%sc' %i for i in range(number_of_channels)])
     df.to_csv('rawdata/default.csv')
 
 #emulator
@@ -219,24 +234,22 @@ class MainApp(MDApp):
         self.theme_cls.primay_hue = '200'
         self.title = 'Blue Physics v.10.0'
         self.icon = 'images/logoonlyspheretransparent.png'
-        self.graphchs = MyGraph()
-        self.graphvolts = {'Temp': MyGraph(ylabel = 'Temp. (C)',
-                                           ymin = 22,
-                                           ymax = 30),
-                           'PS': MyGraph(ylabel='PS (V)',
-                                         ymin=50,
-                                         ymax=65),
-                           '5V': MyGraph(ylabel='5V (V)',
-                                         ymin=4,
-                                         ymax=6),
-                           '-15V': MyGraph(ylabel='-15V (V)',
-                                           ymin=-16,
-                                           ymax=-14),
-                           'refV': MyGraph(ylabel='ref. (V)',
-                                           ymin=0,
-                                           ymax=2)}
+        self.graphchs = MyGraph(ylabel = 'Volts (V)')
+        self.graphtemp = MyGraph(ylabel = 'Temp. (C)')
+        self.graphPS = MyGraph(ylabel='PS (V)')
+        self.graph5V = MyGraph(ylabel='5V (V)')
+        self.graphminus15V = MyGraph(ylabel='-15V (V)')
+        self.graphrefV = MyGraph(ylabel='ref. (V)')
         self.measlayout = self.root.ids.measurescreenlayout
         self.measlayout.add_widget(self.graphchs)
+        #List of all the graphs
+        #useful to change xmin xmax ymin ymax all at once
+        self.allgraphs = [self.graphtemp, self.graph5V, self.graphPS, self.graphminus15V, self.graphrefV, self.graphchs]
+        #Dictionary with all the graphs voltages
+        #needed for switching graphs
+        self.graphvolts = {'Temp':self.graphtemp, 'PS':self.graphPS,
+                           'refV':self.graphrefV, '-15V':self.graphminus15V,
+                           '5V': self.graph5V}
         # Lista ch plots
         self.lchplots = [MeshLinePlot(color=get_color_from_hex(mcolors[i])) for i in range(number_of_channels)]
         for plot in self.lchplots:
@@ -246,15 +259,89 @@ class MainApp(MDApp):
         self.v5Vplot = MeshLinePlot(color=get_color_from_hex(mcolors[4]))
         self.minus15Vplot = MeshLinePlot(color=get_color_from_hex(mcolors[3]))
         self.refVplot = MeshLinePlot(color=get_color_from_hex(mcolors[2]))
-        self.graphvolts['Temp'].add_plot(self.tempplot)
-        self.graphvolts['PS'].add_plot(self.PSplot)
-        self.graphvolts['5V'].add_plot(self.v5Vplot)
-        self.graphvolts['-15V'].add_plot(self.minus15Vplot)
-        self.graphvolts['refV'].add_plot(self.refVplot)
-            
+        #Lista al plots
+        self.allplots = [self.tempplot, self.v5Vplot, self.PSplot, self.minus15Vplot, self.refVplot] + self.lchplots
+        self.graphtemp.add_plot(self.tempplot)
+        self.graphPS.add_plot(self.PSplot)
+        self.graph5V.add_plot(self.v5Vplot)
+        self.graphminus15V.add_plot(self.minus15Vplot)
+        self.graphrefV.add_plot(self.refVplot)
+
         self.contentsheet = Factory.ContentCustomSheet()
         
 
+#This is a fuction to be executed before standard measuring
+#to calculate baselines and initial margins of graphs
+#It is supposed to be excuted before light signal or Linac is received
+    def beforemeasuring(self):
+        labefore = []
+        device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
+        serbefore = serial.Serial(device, 115200, timeout=1)
+        serbefore.reset_input_buffer()
+        serbefore.reset_output_buffer()
+        serbefore.write(b't')
+        
+        while len(labefore) < 429 * 3:
+            if serbefore.in_waiting:
+                inbytes = serbefore.read(22)
+                count = int.from_bytes(inbytes[:4], 'big')
+                mytime = int.from_bytes(inbytes[4:8], 'big')
+                temp = int.from_bytes(inbytes[8:10], 'big')
+                v5 = int.from_bytes(inbytes[10:12], 'big')
+                PS = int.from_bytes(inbytes[12:14], 'big')
+                vminus15 = int.from_bytes(inbytes[14:16], 'big')
+                vref = int.from_bytes(inbytes[16:18], 'big')
+                lmeas = [int.from_bytes(inbytes[18+2*i:20+2*i], 'big') for i in range(number_of_channels)]
+                
+                labefore.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
+        
+        serbefore.close()
+        listofchsc = ['ch%sc' %i for i in range(number_of_channels)]
+        listofchsv = ['ch%sV' %i for i in range(number_of_channels)]
+        dfb = pd.DataFrame(labefore, columns=['counts', 'time', 'temp', 'c5V', 'cPS', 'cminus15V', 'cref'] + listofchsc)
+        dfb['tempC'] = (dfb.temp & 0xFFF) / 16
+        dfb[listofchsv] = dfb.loc[:,listofchsc] * -24.576 / 65535 + 12.288
+        dfb['v5V'] = dfb.c5V * 0.1875 / 1000
+        dfb['vPS'] = dfb.cPS * 0.1875 * 16.39658 / 1000
+        dfb['vminus15V'] = dfb.cminus15V * 0.1875 * -4.6887 / 1000
+        dfb['vref'] = dfb.cref * 0.0625 / 1000
+        
+        #set the maximum signal of dark current without light
+        #to findout the pulses
+        #max value is going to be set up with a buffer of 5%
+        maxchs = dfb.loc[10:,listofchsv].max().max()
+        self.maxvalueatnolight = maxchs + 0.05 * abs(maxchs)
+        
+        #new zerovalue for channels at not ligth
+        #This will be used to reset the zero value of the measurements
+        self.newminvalueatnolight = dfb.loc[10:,listofchsv].min().min()
+        
+        #set the maximuns and minimuns of graphs
+        self.graphchs.ymax = float(maxchs + 0.005 * abs(maxchs))
+        minchs = dfb.loc[10:,listofchsv].min().min()
+        self.graphchs.ymin = float(minchs - 0.005 * abs(minchs))
+        maxtemp = dfb.loc[10:,'tempC'].max()
+        self.graphtemp.ymax = float(maxtemp + 0.005 * abs(maxtemp))
+        mintemp = dfb.loc[10:,'tempC'].min()
+        self.graphtemp.ymin = float(mintemp - 0.005 * abs(mintemp))
+        maxPS = dfb.loc[10:,'vPS'].max()
+        self.graphPS.ymax = float(maxPS + 0.005 * abs(maxPS))
+        minPS = dfb.loc[10:,'vPS'].min()
+        self.graphPS.ymin = float(minPS - 0.005 * abs(minPS))
+        max5V = dfb.loc[10:,'v5V'].max()
+        self.graph5V.ymax = float(max5V + 0.005 * abs(max5V))
+        min5V = dfb.loc[10:,'v5V'].min()
+        self.graph5V.ymin = float(min5V - 0.005 * abs(min5V))
+        maxminus15V = dfb.loc[10:,'vminus15V'].max()
+        self.graphminus15V.ymax = float(maxminus15V + 0.005 * abs(maxminus15V))
+        minminus15V = dfb.loc[10:,'vminus15V'].min()
+        self.graphminus15V.ymin = float(minminus15V - 0.005 * abs(minminus15V))
+        maxrefV = dfb.loc[10:,'vref'].max()
+        self.graphrefV.ymax = float(maxrefV + 0.005 * abs(maxrefV))
+        minrefV = dfb.loc[10:,'vref'].min()
+        self.graphrefV.ymin = float(minrefV - 0.005 * abs(minrefV))
+        
+        
 
     def start(self):
 
@@ -270,6 +357,11 @@ class MainApp(MDApp):
         self.root.ids.checkboxlevel2.disabled = True
         self.root.ids.checkboxlevel3.disabled = True
         self.root.ids.checkboxlevel4.disabled = True
+        
+        #Routine to execute before measuring
+        #This is to calculate base lines and initial plot margins
+        self.beforemeasuring()
+        
         self.receiver_thread = Thread(target=receiver)
         self.receiver_thread.daemon = True
         self.receiver_thread.start()
@@ -279,23 +371,16 @@ class MainApp(MDApp):
         self.plotpulses = self.contentsheet.ids.mypulsescheckbox.active
         
         if (not self.plotpulses):
-            self.graphchs.xmin = 0
-            self.graphchs.xmax = 60
-            self.graphchs.x_ticks_major = 10
-            self.graphchs.x_ticks_minor = 5
+            for graph in self.allgraphs:
+                graph.xmin = 0
+                graph.xmax = 60
             self.graphchs.ymin = -10
-            self.graphchs.ymax = 400
-            self.graphchs.y_ticks_major = 100
-            self.graphchs.y_ticks_minor = 10
-            self.acum = np.zeros((1, 1+number_of_channels))
+            self.graphchs.ymax = 1000
+            self.acum = np.zeros((1, 7+number_of_channels))
             self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
-            self.graphchs.xmin = 0
-            self.graphchs.xmax = 0.5
-            self.graphchs.ymin = -6
-            self.graphchs.ymax = 6
-            self.graphchs.y_ticks_major = 1
-            self.graphchs.y_ticks_minor = 10
+            self.graphchs.ymin = -12
+            self.graphchs.ymax = 12
             self.plotcounter = 0
             self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
 
@@ -315,7 +400,7 @@ class MainApp(MDApp):
         stop_thread = True
         #self.sender_thread.join()
         
-        Clock.unschedule(self.event1)
+        #Clock.unschedule(self.event1)
     
         #emulator
         #print('sender_thread kiled')
@@ -329,36 +414,46 @@ class MainApp(MDApp):
 
     def updategraphs(self, dt):
         an = np.array(la[-429:])
-        means = an[:,1:7].mean()
-        x = an[:,1]/1000000
-        ys = an[:,7:] * -24.576/65535 + 12.288
-        xn, ysn = cleanpulses(x, ys)
-        tnow = x[0]
-        if self.graphchs.xmax < tnow:
-            self.graphchs.xmax = float(tnow)
-            #self.graphchs.xmin = float(timescumnow) - 60
-        #datacum = ys.sum(axis=0)
-        datacum = ysn.sum(axis=0)
-        datatoadd = np.append(tnow, datacum)
-        print(datatoadd)
-        self.acum = np.vstack((self.acum, datatoadd))
-        self.lchplots[0].points = self.acum[1:,[0,1]]
-        self.lchplots[1].points = self.acum[1:,[0,2]]
+        anv = an * arrmultip + arrsum
+        #anv = cleanpulses(anv, self.maxvalueatnolight)
+        countnow = anv[0,0]
+        tnow = anv[0,1]
+        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
+        if tnow > self.graphchs.xmax:
+            for graph in self.allgraphs:
+                graph.xmax = float(tnow)
+                #graph.xmin = float(timescumnow) - 60
 
+        datacum = anv[:,7:].sum(axis=0)
+        voltcum = anv[:,3:7].mean(axis=0)
+        datatoadd = np.hstack((countnow, tnow, tempnow, voltcum, datacum))
+        #print(datatoadd)
+        self.acum = np.vstack((self.acum, datatoadd))
+        self.tempplot.points = self.acum[1:, [1,2]]
+        self.v5Vplot.points = self.acum[1:, [1,3]]
+        self.PSplot.points = self.acum[1:, [1,4]]
+        self.minus15Vplot.points = self.acum[1:, [1,5]]
+        self.refVplot.points = self.acum[1:, [1,6]]
+        for i in range(number_of_channels):
+            self.lchplots[i].points = self.acum[1:,[1,7+i]]
 
     def updategraphpulses(self, dt):
         an = np.array(la[-429:])
-        x = (an[:,0]/1000000)
-        PS = an[:,4] * 0.1875*16.39658/1000
-        ys = an[:,7:] * -24.576/65535 + 12.288
-        xnc, nachnc = cleanpulses(x, ys)
-        ann = np.column_stack((x, ys))
-        #ann = np.column_stack((xnc, nachnc))
-        self.graphchs.xmin = float(x[0])
-        self.graphchs.xmax = float(x[-1])
-        #self.lchplots[0].points = ann[:,[0,1]]
-        #self.lchplots[1].points = ann[:,[0,2]]
-        #print(PS[0])
+        anv = an * arrmultip + arrsum
+        #anv = cleanpulses(anv, self.maxvalueatnolight)
+        for graph in self.allgraphs:
+            graph.xmin = float(anv[0,1])
+            graph.xmax = float(anv[-1,1])
+        self.tempplot.points = (an[:, [1,2]] & 0xFFF) / 16
+        self.v5Vplot.points = anv[:, [1,3]]
+        self.PSplot.points = anv[:, [1,4]]
+        self.minus15Vplot.points = anv[:, [1,5]]
+        self.refVplot.points = anv[:, [1,6]]
+        for i in range(number_of_channels):
+            self.lchplots[i].points = anv[:,[1,7+i]]
+        #print ('Last measurement: ', anv[-1,:].round(3))
+        #print('PS=',anv[:,4].mean().round(3), 'V')
+        #print ('max value at no light: ', self.maxvalueatnolight)
 
     def bottomsheet(self):
         self.custom_sheet = MDCustomBottomSheet(screen=self.contentsheet,

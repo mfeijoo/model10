@@ -21,7 +21,7 @@ Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
 #define RAN_4 A0
 #define SHD_REF 9
 //#define CS_POT 10
-#define PSFC 16.39658
+#define PSFC 16.4372
 #define testpin 13
 
 // For AD51115 powers
@@ -38,7 +38,7 @@ int integral = 300;
 unsigned long integraltimemicros = 700;
 int resettimemicros = 10;
 
-bool printtoconsole = false;
+bool printtoconsole = true;
 
 unsigned int countvolt = 1;
 
@@ -139,7 +139,7 @@ void setup() {
   
   //Then wait 2 seconds and turn on the Power Suplly
   delay(2000);
-  digitalWrite (SHD_PS, LOW);
+  digitalWrite (SHD_PS, HIGH);
 
   
   //Set range of all channels to +-3 * Vref
@@ -403,7 +403,7 @@ void ReadChannelsOnceandsend(){
       Serial.print(adc0*0.1875/1000, 4);
       Serial.print(",");
       //adc1 PS
-      Serial.print(adc1*0.1875*16.39658/1000, 4);
+      Serial.print(adc1*0.1875*PSFC/1000, 4);
       Serial.print(",");
       //adc2 -15
       Serial.print(adc2*0.1875*-4.6887/1000, 4);
