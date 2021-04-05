@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.environ["KCFG_KIVY_LOG_LEVEL"] = 'error'
 from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 from kivymd.app import MDApp
@@ -13,7 +15,6 @@ from serial import Serial
 import serial.tools.list_ports
 from threading import Thread
 import time
-import math
 import numpy as np
 import pandas as pd
 
@@ -23,18 +24,26 @@ class MyGraph(Graph):
 
     def __init__(self, *args, **kwargs):
         super(MyGraph, self).__init__(*args, **kwargs)
+        self.xmaxorig = self.xmax
+        self.xminorig = self.xmin
+        self.ymaxorig = self.ymax
+        self.yminorig = self.ymin
+        self.font_size = '10sp'
+        self.precision = '%.2f'
 
 
     def on_touch_down(self, touch):
-        super(MyGraph, self).on_touch_down(touch)
         
         if not self.collide_point(*touch.pos):
             return
             
             
         if touch.button == 'left':
+            touch.grab(self)
             self.origx = touch.x
-            self.origy = touch.y - 10
+            self.origy = touch.y
+            (self.xminnow, self.ymaxnow) = self.to_data(touch.x, touch.y)
+            print(self.to_data(self.origx, self.origy))
             
             with self.canvas:
                 Color(1,0,0,0.5)
@@ -50,16 +59,17 @@ class MyGraph(Graph):
             currentxdist = self.xmax - self.xmin
             currentydist = self.ymax - self.ymin
             zoom = 0.05
-            if touch.button == 'scrolldown':
+            if touch.button == 'scrollup':
                 self.xmax = self.xmax + currentxdist*zoom
                 self.xmin = self.xmin - currentxdist*zoom
                 self.ymax = self.ymax + currentydist*zoom
                 self.ymin = self.ymin - currentydist*zoom
-            if touch.button == 'scrollup':
+            if touch.button == 'scrolldown':
                 self.xmax = self.xmax - currentxdist*zoom
                 self.xmin = self.xmin + currentxdist*zoom
                 self.ymax = self.ymax - currentydist*zoom
                 self.ymin = self.ymin + currentydist*zoom
+        return True
    
             
     def on_touch_move(self, touch):
@@ -73,13 +83,19 @@ class MyGraph(Graph):
         
     def on_touch_up(self, touch):
         
-        if not self.collide_point(*touch.pos):
-            return
+        if touch.grab_current is self:
         
-        if touch.button == 'left':
-            self.canvas.remove(self.rect)
-            (self.xmin, self.ymin) = self.to_data(self.origx, touch.y)
-            (self.xmax, self.ymax) = self.to_data(touch.x, self.origy)
+            if touch.button == 'left':
+                (self. xmaxnow, self.yminnow) = self.to_data(touch.x, touch.y)
+                self.xmin = self.xminnow
+                self.xmax = self.xmaxnow
+                self.ymin = self.yminnow
+                self.ymax = self.ymaxnow
+                self.canvas.remove(self.rect)
+                print(self.xmaxnow, self.yminnow)
+                print ('xmin, xmax, ymin, ymax', self.xmin, self.xmax, self.ymin, self.ymax)
+            touch.ungrab(self)
+            return True
 
 
 
@@ -165,7 +181,6 @@ def cleanpulses(arr, maxvalueatnolight):
 
 def receiver():
     global la
-    #da = np.zeros((1, 7+number_of_channels), dtype=int)
     la = []
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
     ser = serial.Serial(device, 115200, timeout=1)
@@ -235,8 +250,16 @@ class MainApp(MDApp):
         self.title = 'Blue Physics v.10.0'
         self.icon = 'images/logoonlyspheretransparent.png'
         self.graphchs = MyGraph(ylabel = 'Volts (V)')
-        self.graphtemp = MyGraph(ylabel = 'Temp. (C)')
-        self.graphPS = MyGraph(ylabel='PS (V)')
+        self.graphtemp = MyGraph(ylabel = 'Temp. (C)',
+                                 ymin = 24,
+                                 ymax = 26,
+                                 y_ticks_major = 0.1,
+                                 y_ticks_minor = 5)
+        self.graphPS = MyGraph(ylabel='PS (V)',
+                               ymin = 55,
+                               ymax = 57,
+                               y_ticks_major = 0.1,
+                               y_ticks_minor = 5)
         self.graph5V = MyGraph(ylabel='5V (V)')
         self.graphminus15V = MyGraph(ylabel='-15V (V)')
         self.graphrefV = MyGraph(ylabel='ref. (V)')
@@ -327,7 +350,7 @@ class MainApp(MDApp):
         maxPS = dfb.loc[10:,'vPS'].max()
         self.graphPS.ymax = float(maxPS + 0.005 * abs(maxPS))
         minPS = dfb.loc[10:,'vPS'].min()
-        self.graphPS.ymin = float(minPS - 0.005 * abs(minPS))
+        self.graphPS.ymin = float(minPS)
         max5V = dfb.loc[10:,'v5V'].max()
         self.graph5V.ymax = float(max5V + 0.005 * abs(max5V))
         min5V = dfb.loc[10:,'v5V'].min()
@@ -375,7 +398,7 @@ class MainApp(MDApp):
                 graph.xmin = 0
                 graph.xmax = 60
             self.graphchs.ymin = -10
-            self.graphchs.ymax = 1000
+            self.graphchs.ymax = 1200
             self.acum = np.zeros((1, 7+number_of_channels))
             self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
@@ -400,22 +423,24 @@ class MainApp(MDApp):
         stop_thread = True
         #self.sender_thread.join()
         
-        #Clock.unschedule(self.event1)
+        Clock.unschedule(self.event1)
     
         #emulator
         #print('sender_thread kiled')
         
-        self.graphchs.xmaxorig = self.graphchs.xmax
-        self.graphchs.xminorig = self.graphchs.xmin
-        self.graphchs.ymaxorig = self.graphchs.ymax
-        self.graphchs.yminorig = self.graphchs.ymin
+        for graph in self.allgraphs:
+            graph.xmaxorig = graph.xmax
+            graph.xminorig = graph.xmin
+            graph.ymaxorig = graph.ymax
+            graph.yminorig = graph.ymin
 
         
 
     def updategraphs(self, dt):
         an = np.array(la[-429:])
         anv = an * arrmultip + arrsum
-        #anv = cleanpulses(anv, self.maxvalueatnolight)
+        if self.contentsheet.ids.mycleanpulses.active:
+            anv = cleanpulses(anv, self.maxvalueatnolight)
         countnow = anv[0,0]
         tnow = anv[0,1]
         tempnow = ((an[:,2] & 0xFFF) / 16).mean()
@@ -436,11 +461,13 @@ class MainApp(MDApp):
         self.refVplot.points = self.acum[1:, [1,6]]
         for i in range(number_of_channels):
             self.lchplots[i].points = self.acum[1:,[1,7+i]]
+        print('time =', tnow, 'PS =', voltcum[1].round(3), 'V')
 
     def updategraphpulses(self, dt):
         an = np.array(la[-429:])
         anv = an * arrmultip + arrsum
-        #anv = cleanpulses(anv, self.maxvalueatnolight)
+        if self.contentsheet.ids.mycleanpulses.active:
+            anv = cleanpulses(anv, self.maxvalueatnolight)
         for graph in self.allgraphs:
             graph.xmin = float(anv[0,1])
             graph.xmax = float(anv[-1,1])
@@ -452,7 +479,7 @@ class MainApp(MDApp):
         for i in range(number_of_channels):
             self.lchplots[i].points = anv[:,[1,7+i]]
         #print ('Last measurement: ', anv[-1,:].round(3))
-        #print('PS=',anv[:,4].mean().round(3), 'V')
+        print('PS =',anv[:,4].mean().round(3), 'V')
         #print ('max value at no light: ', self.maxvalueatnolight)
 
     def bottomsheet(self):

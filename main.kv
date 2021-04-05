@@ -30,8 +30,8 @@
 <PulsesCheckBoxLabel@BoxLayout>:
 	text: 'pulses'
 	color: mcolor5
-	size_hint: None, None
-	size: self.minimum_size
+	#size_hint: None, None
+	#size: self.minimum_size
 	active: pulsecheckbox.active
 	MDCheckbox:
 		id: pulsecheckbox
@@ -51,8 +51,8 @@
 <CheckBoxLabel@BoxLayout>:
 	text: 'ch'
 	color: [1,0,0,1]
-	size_hint: None, None
-	size: self.minimum_size
+	#size_hint: None, None
+	#size: self.minimum_size
 	MDCheckbox:
 		id: checkbox
 		color: root.color
@@ -76,8 +76,8 @@
 <CheckBoxLabelGroup@BoxLayout>:
 	text: 'ch'
 	color: [1,0,0,1]
-	size_hint: None, None
-	size: self.minimum_size
+	#size_hint: None, None
+	#size: self.minimum_size
 	active: False
 	CheckGroup:
 		id: checkbox
@@ -123,18 +123,14 @@
 
 
 <ContentCustomSheet@BoxLayout>:
-	size_hint: None, None
-	size:self.minimum_size
+	#size_hint: None, None
+	#size:self.minimum_size
 	pos_hint: None, None
 	pos_hint: {'center_x':.5, 'center_y':.5}
 
 
 	MDGridLayout:
-		cols: 4
-		size_hint: None, None
-		size: self.minimum_size
-		#pos_hint: None, None
-		#pos_hint: {'center_x':.25, 'center_y':.5}
+		cols: 8
 
 		CheckBoxLabel:
 			id: chb0
@@ -169,16 +165,12 @@
 			text: 'ch7'
 			color: mcolor7
 
-	PulsesCheckBoxLabel:
-		id: mypulsescheckbox
-		pos_hint_y: None
-		pos_hint_y:.5
-
-
-	MDGridLayout:
-		cols: 3
-		size_hint: None, None
-		size: self.minimum_size
+		PulsesCheckBoxLabel:
+			id: mycleanpulses
+			text: 'clean'
+			color: 1,1,0,1
+		PulsesCheckBoxLabel:
+			id: mypulsescheckbox
 
 
 		CheckBoxLabelGroup:
