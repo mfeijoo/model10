@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import os
-os.environ["KCFG_KIVY_LOG_LEVEL"] = 'error'
+#import os
+#os.environ["KCFG_KIVY_LOG_LEVEL"] = 'error'
 from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 from kivymd.app import MDApp
@@ -113,6 +113,7 @@ mcolors = [colors['Gray']['300'],
 
 number_of_channels = 2
 
+
 arrmultip = np.array([1,
                       1/1000000,
                       1,
@@ -202,10 +203,7 @@ def receiver():
             lmeas = [int.from_bytes(inbytes[18+2*i:20+2*i], 'big') for i in range(number_of_channels)]
             
             la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
-            #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])
-            #da = np.append(da, atoadd, axis=0)
-        
-        
+
             '''print (count,
                    mytime,
                    (temp & 0xFFF)/16,
@@ -256,9 +254,9 @@ class MainApp(MDApp):
                                  y_ticks_major = 0.1,
                                  y_ticks_minor = 5)
         self.graphPS = MyGraph(ylabel='PS (V)',
-                               ymin = 55,
-                               ymax = 57,
-                               y_ticks_major = 0.1,
+                               ymin = 56.55,
+                               ymax = 56.75,
+                               y_ticks_major = 0.05,
                                y_ticks_minor = 5)
         self.graph5V = MyGraph(ylabel='5V (V)')
         self.graphminus15V = MyGraph(ylabel='-15V (V)')
@@ -348,9 +346,9 @@ class MainApp(MDApp):
         mintemp = dfb.loc[10:,'tempC'].min()
         self.graphtemp.ymin = float(mintemp - 0.005 * abs(mintemp))
         maxPS = dfb.loc[10:,'vPS'].max()
-        self.graphPS.ymax = float(maxPS + 0.005 * abs(maxPS))
+        self.graphPS.ymax = float(maxPS + 0.003 * abs(maxPS))
         minPS = dfb.loc[10:,'vPS'].min()
-        self.graphPS.ymin = float(minPS)
+        self.graphPS.ymin = float(minPS + 0.001 * abs(minPS))
         max5V = dfb.loc[10:,'v5V'].max()
         self.graph5V.ymax = float(max5V + 0.005 * abs(max5V))
         min5V = dfb.loc[10:,'v5V'].min()
@@ -398,7 +396,7 @@ class MainApp(MDApp):
                 graph.xmin = 0
                 graph.xmax = 60
             self.graphchs.ymin = -10
-            self.graphchs.ymax = 1200
+            self.graphchs.ymax = 500
             self.acum = np.zeros((1, 7+number_of_channels))
             self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
@@ -437,23 +435,20 @@ class MainApp(MDApp):
         
 
     def updategraphs(self, dt):
-        an = np.array(la[-429:])
+        an = np.array(la[-300:])
+        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
         anv = an * arrmultip + arrsum
         if self.contentsheet.ids.mycleanpulses.active:
             anv = cleanpulses(anv, self.maxvalueatnolight)
         countnow = anv[0,0]
         tnow = anv[0,1]
-        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
-        if tnow > self.graphchs.xmax:
-            for graph in self.allgraphs:
-                graph.xmax = float(tnow)
-                #graph.xmin = float(timescumnow) - 60
-
         datacum = anv[:,7:].sum(axis=0)
         voltcum = anv[:,3:7].mean(axis=0)
         datatoadd = np.hstack((countnow, tnow, tempnow, voltcum, datacum))
-        #print(datatoadd)
         self.acum = np.vstack((self.acum, datatoadd))
+        if tnow > 60:
+            for graph in self.allgraphs:
+                graph.xmax = float(tnow) 
         self.tempplot.points = self.acum[1:, [1,2]]
         self.v5Vplot.points = self.acum[1:, [1,3]]
         self.PSplot.points = self.acum[1:, [1,4]]
@@ -461,10 +456,9 @@ class MainApp(MDApp):
         self.refVplot.points = self.acum[1:, [1,6]]
         for i in range(number_of_channels):
             self.lchplots[i].points = self.acum[1:,[1,7+i]]
-        print('time =', tnow, 'PS =', voltcum[1].round(3), 'V')
 
     def updategraphpulses(self, dt):
-        an = np.array(la[-429:])
+        an = np.array(la[-300:])
         anv = an * arrmultip + arrsum
         if self.contentsheet.ids.mycleanpulses.active:
             anv = cleanpulses(anv, self.maxvalueatnolight)
@@ -490,9 +484,9 @@ class MainApp(MDApp):
 
     def addremoveplot(self, intext, checkbox, value):
         if value:
-            self.graphchs.add_plot(lchs[int(intext[-1])]['plot'])
+            self.graphchs.add_plot(self.lchplots[int(intext[-1])])
         else:
-            self.graphchs.remove_plot(lchs[int(intext[-1])]['plot'])
+            self.graphchs.remove_plot(self.lchplots[int(intext[-1])])
 
 
     def addremovegraph(self, intext, checkbox, value):

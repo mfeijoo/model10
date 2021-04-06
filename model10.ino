@@ -35,10 +35,10 @@ float adc2V = 0.0000;
 float adc3V = 0.0000;
 
 int integral = 300;
-unsigned long integraltimemicros = 700;
+unsigned long integraltimemicros = 1000;
 int resettimemicros = 10;
 
-bool printtoconsole = true;
+bool printtoconsole = false;
 
 unsigned int countvolt = 1;
 
