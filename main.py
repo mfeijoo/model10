@@ -29,7 +29,7 @@ class MyGraph(Graph):
         self.ymaxorig = self.ymax
         self.yminorig = self.ymin
         self.font_size = '10sp'
-        self.precision = '%.2f'
+        self.precision = '%.3f'
 
 
     def on_touch_down(self, touch):
@@ -113,13 +113,14 @@ mcolors = [colors['Gray']['300'],
 
 number_of_channels = 2
 
+
 arrmultip = np.array([1,
                       1/1000000,
                       1,
                       0.1875/1000,
                       0.1875*16.4372/1000,
                       0.1875*-4.6887/1000,
-                      0.0625/1000,
+                      0.1875/1000,
                       -24.576/65535,
                       -24.576/65535])
 arrsum = np.array([0]*7+[12.288]*number_of_channels)
@@ -183,7 +184,7 @@ def receiver():
     da = b''
     count = 0
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-    ser = serial.Serial(device, 115200, timeout=1)
+    ser = serial.Serial(device, 57600, xonxoff=False, timeout=3)
     ser.reset_input_buffer()
     ser.reset_output_buffer()
     ser.write(b't') #restart counting
@@ -195,6 +196,10 @@ def receiver():
             da += inbytes
             count += 1
             '''count = int.from_bytes(inbytes[:4], 'big')
+            inbytes = ser.read(22)
+            print(ser.in_waiting)
+            #line = ser.readline()
+            count = int.from_bytes(inbytes[:4], 'big')
             mytime = int.from_bytes(inbytes[4:8], 'big')
             temp = int.from_bytes(inbytes[8:10], 'big')
             v5 = int.from_bytes(inbytes[10:12], 'big')
@@ -206,15 +211,14 @@ def receiver():
             la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
             #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])'''
             #da = np.append(da, atoadd, axis=0)
-        
-        
+
             '''print (count,
                    mytime,
                    (temp & 0xFFF)/16,
                    '%.4f' %(v5 * 0.1875/1000),
                    '%.4f' %(PS * 0.1875*16.4372/1000),
                    '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
-                   '%.4f' %(vref * 0.0625/1000),
+                   '%.4f' %(vref * 0.1875/1000),
                    '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
                    '%.4f' %(lmeas[1] * -24.576/65535 + 12.288))'''
 
@@ -234,7 +238,7 @@ def receiver():
     myfile = open('rawdata/emulatormeasurmentslong.csv')
     lines = myfile.readlines()
     myfile.close()
-    serial_sender = Serial('/dev/pts/2', 115200, timeout=1)
+    serial_sender = Serial('/dev/pts/2', 57600, timeout=1)
     time_start = time.time()
     
     for line in lines:
@@ -263,13 +267,17 @@ class MainApp(MDApp):
                                  y_ticks_major = 0.1,
                                  y_ticks_minor = 5)
         self.graphPS = MyGraph(ylabel='PS (V)',
-                               ymin = 55,
-                               ymax = 57,
-                               y_ticks_major = 0.1,
+                               ymin = 56.55,
+                               ymax = 56.75,
+                               y_ticks_major = 0.05,
                                y_ticks_minor = 5)
         self.graph5V = MyGraph(ylabel='5V (V)')
         self.graphminus15V = MyGraph(ylabel='-15V (V)')
-        self.graphrefV = MyGraph(ylabel='ref. (V)')
+        self.graphrefV = MyGraph(ylabel='ref. (V)',
+                                 ymin = 1.27,
+                                 ymax = 1.26,
+                                 y_ticks_major = 0.01,
+                                 y_ticks_minor = 5)
         self.measlayout = self.root.ids.measurescreenlayout
         self.measlayout.add_widget(self.graphchs)
         #List of all the graphs
@@ -306,7 +314,7 @@ class MainApp(MDApp):
     def beforemeasuring(self):
         labefore = []
         device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-        serbefore = serial.Serial(device, 115200, timeout=1)
+        serbefore = serial.Serial(device, 57600, timeout=1)
         serbefore.reset_input_buffer()
         serbefore.reset_output_buffer()
         serbefore.write(b't')
@@ -355,9 +363,9 @@ class MainApp(MDApp):
         mintemp = dfb.loc[10:,'tempC'].min()
         self.graphtemp.ymin = float(mintemp - 0.005 * abs(mintemp))
         maxPS = dfb.loc[10:,'vPS'].max()
-        self.graphPS.ymax = float(maxPS + 0.005 * abs(maxPS))
+        self.graphPS.ymax = float(maxPS + 0.003 * abs(maxPS))
         minPS = dfb.loc[10:,'vPS'].min()
-        self.graphPS.ymin = float(minPS)
+        self.graphPS.ymin = float(minPS + 0.001 * abs(minPS))
         max5V = dfb.loc[10:,'v5V'].max()
         self.graph5V.ymax = float(max5V + 0.005 * abs(max5V))
         min5V = dfb.loc[10:,'v5V'].min()
@@ -366,10 +374,10 @@ class MainApp(MDApp):
         self.graphminus15V.ymax = float(maxminus15V + 0.005 * abs(maxminus15V))
         minminus15V = dfb.loc[10:,'vminus15V'].min()
         self.graphminus15V.ymin = float(minminus15V - 0.005 * abs(minminus15V))
-        maxrefV = dfb.loc[10:,'vref'].max()
-        self.graphrefV.ymax = float(maxrefV + 0.005 * abs(maxrefV))
-        minrefV = dfb.loc[10:,'vref'].min()
-        self.graphrefV.ymin = float(minrefV - 0.005 * abs(minrefV))
+        #maxrefV = dfb.loc[10:,'vref'].max()
+        #self.graphrefV.ymax = float(maxrefV + 0.005 * abs(maxrefV))
+        #minrefV = dfb.loc[10:,'vref'].min()
+        #self.graphrefV.ymin = float(minrefV - 0.005 * abs(minrefV))
         
         
 
@@ -405,7 +413,7 @@ class MainApp(MDApp):
                 graph.xmin = 0
                 graph.xmax = 60
             self.graphchs.ymin = -10
-            self.graphchs.ymax = 1200
+            self.graphchs.ymax = 1000
             self.acum = np.zeros((1, 7+number_of_channels))
             #self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
@@ -415,7 +423,7 @@ class MainApp(MDApp):
             #self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
 
         #emulator
-        #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
+        #self.ser = Serial('/dev/pts/5', 57600, timeout=1)
 
 
     def stop(self):
@@ -444,23 +452,20 @@ class MainApp(MDApp):
         
 
     def updategraphs(self, dt):
-        an = np.array(la[-429:])
+        an = np.array(la[-300:])
+        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
         anv = an * arrmultip + arrsum
         if self.contentsheet.ids.mycleanpulses.active:
             anv = cleanpulses(anv, self.maxvalueatnolight)
         countnow = anv[0,0]
         tnow = anv[0,1]
-        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
-        if tnow > self.graphchs.xmax:
-            for graph in self.allgraphs:
-                graph.xmax = float(tnow)
-                #graph.xmin = float(timescumnow) - 60
-
         datacum = anv[:,7:].sum(axis=0)
         voltcum = anv[:,3:7].mean(axis=0)
         datatoadd = np.hstack((countnow, tnow, tempnow, voltcum, datacum))
-        #print(datatoadd)
         self.acum = np.vstack((self.acum, datatoadd))
+        if tnow > 60:
+            for graph in self.allgraphs:
+                graph.xmax = float(tnow) 
         self.tempplot.points = self.acum[1:, [1,2]]
         self.v5Vplot.points = self.acum[1:, [1,3]]
         self.PSplot.points = self.acum[1:, [1,4]]
@@ -468,10 +473,9 @@ class MainApp(MDApp):
         self.refVplot.points = self.acum[1:, [1,6]]
         for i in range(number_of_channels):
             self.lchplots[i].points = self.acum[1:,[1,7+i]]
-        print('time =', tnow, 'PS =', voltcum[1].round(3), 'V')
 
     def updategraphpulses(self, dt):
-        an = np.array(la[-429:])
+        an = np.array(la[-300:])
         anv = an * arrmultip + arrsum
         if self.contentsheet.ids.mycleanpulses.active:
             anv = cleanpulses(anv, self.maxvalueatnolight)
@@ -497,9 +501,9 @@ class MainApp(MDApp):
 
     def addremoveplot(self, intext, checkbox, value):
         if value:
-            self.graphchs.add_plot(lchs[int(intext[-1])]['plot'])
+            self.graphchs.add_plot(self.lchplots[int(intext[-1])])
         else:
-            self.graphchs.remove_plot(lchs[int(intext[-1])]['plot'])
+            self.graphchs.remove_plot(self.lchplots[int(intext[-1])])
 
 
     def addremovegraph(self, intext, checkbox, value):
@@ -518,7 +522,7 @@ class MainApp(MDApp):
     def onofflevel(self, intext, switch):
         print ('Rango:', intext[-1])
         device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-        ser = serial.Serial(device, 115200, timeout=1)
+        ser = serial.Serial(device, 57600, timeout=1)
         ser.write(('c%s,' %intext[-1]).encode())
         ser.close()
 

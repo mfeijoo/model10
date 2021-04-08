@@ -35,7 +35,7 @@ float adc2V = 0.0000;
 float adc3V = 0.0000;
 
 int integral = 300;
-unsigned long integraltimemicros = 700;
+unsigned long integraltimemicros = 1000;
 int resettimemicros = 10;
 
 bool printtoconsole = true;
@@ -96,7 +96,7 @@ void setup() {
   digitalWrite(HOLD, LOW);
   digitalWrite(CS_ADQ1, HIGH);
   digitalWrite(SHD_PS, LOW);
-  digitalWrite(SHD_REF, LOW);
+  digitalWrite(SHD_REF, HIGH);
   digitalWrite(RAN_1, LOW);
   digitalWrite(RAN_2, LOW);
   digitalWrite(RAN_3, HIGH);
@@ -104,7 +104,7 @@ void setup() {
   //digitalWrite(CS_POT, HIGH);
   
 
-  Serial.begin(115200);
+  Serial.begin(57600);
   Wire.begin();
   SPI.begin();
 
@@ -127,13 +127,22 @@ void setup() {
 
   Wire.setClock(400000);
 
+  //Set the PS DAC to use external reference
+  Wire.beginTransmission(0x4b);
+  Wire.write(0x3); //command byte Config register
+  Wire.write(0x1); //turn down power of internal reference
+  Wire.write(0x0); //No turn off the DAC
+  Wire.endTransmission();
+
   //Set the PS DAC to devide by 2 and multiply by 1
   //the internal reference of 2.5 V to get 1.25 V
   Wire.beginTransmission(0x4b);
   Wire.write(0x4); //comand byte Gain register
-  Wire.write(0x1); //devide by 2
+  Wire.write(0x0); //devide by 2
   Wire.write(0x0); //multiply by 1
   Wire.endTransmission();
+
+ 
 
   //digitalWrite(SHD_REF, HIGH);
   
@@ -203,28 +212,22 @@ void loop() {
         //adc2V = adc.getResult_V();
         break;
        case 13:
-        adc.setVoltageRange_mV(ADS1115_RANGE_2048);
-        break;
-       case 15:
         adc.setCompareChannels(ADS1115_COMP_3_GND);
         adc.startSingleMeasurement();
         break;
-       case 17:
+       case 15:
         adc3 = adc.getRawResult();
         arraytosend[16] = adc3 >> 8;
         arraytosend[17] = adc3 & 0xFF;
         //adc3V = adc.getResult_V();
         break;
-       case 19:
-        adc.setVoltageRange_mV(ADS1115_RANGE_6144);
-        break;
-       case 21:
+       case 17:
         temp = tempsensor.readTempC();
         tempbytes = tempsensor.read16(0x05);
         arraytosend[8] = tempbytes >> 8;
         arraytosend[9] = tempbytes & 0xFF;
         break;
-       case 22:
+       case 18:
         countvolt = 0;
         break;
        
@@ -409,7 +412,7 @@ void ReadChannelsOnceandsend(){
       Serial.print(adc2*0.1875*-4.6887/1000, 4);
       Serial.print(",");
       //adc3 ref 1.25V
-      Serial.print(adc3*0.0625/1000, 4);
+      Serial.print(adc3*0.1875/1000, 4);
 
       Serial.print(",");
       Serial.print(chb[0]*-24.576/65535 + 12.288, 4);
@@ -459,9 +462,9 @@ void regulatePS(){
   //measure PS once
   //potlow = 0;
   //pothigh = 1023;
-  dacnow = 320;
+  dacnow = 54000;
   setPSDAC(dacnow);
-  //delay (1000);
+  delay (20);
   readPS();
 
 
@@ -476,15 +479,16 @@ void regulatePS(){
     //voltage is too high
     if (PSV > (setvolt + 0.008)){
       //pothigh = potnow;
-      dacnow = dacnow - 1;
+      dacnow = dacnow - 50;
     }
     //voltage is too low
     else if (PSV < (setvolt - 0.008)){
       //potlow = potnow;
-      dacnow = dacnow + 1;
+      dacnow = dacnow + 50;
     }
     //potnow = int((potlow + pothigh) / 2);
     setPSDAC(dacnow);
+    delay(20);
     readPS();
     Serial.print("setvolt,");
     Serial.print(setvolt, 2);
@@ -502,7 +506,6 @@ void regulatePS(){
 }
 
 void readPS(){
-  adc.setVoltageRange_mV(ADS1115_RANGE_6144);
   adc.setCompareChannels(ADS1115_COMP_1_GND);
   adc.startSingleMeasurement();
   delay(1000);
