@@ -35,10 +35,10 @@ float adc2V = 0.0000;
 float adc3V = 0.0000;
 
 int integral = 300;
-unsigned long integraltimemicros = 1000;
+unsigned long integraltimemicros = 700;
 int resettimemicros = 10;
 
-bool printtoconsole = true;
+bool printtoconsole = false;
 
 unsigned int countvolt = 1;
 
@@ -104,7 +104,8 @@ void setup() {
   //digitalWrite(CS_POT, HIGH);
   
 
-  Serial.begin(57600);
+  //Serial.begin(57600);
+  Serial.begin(115200);
   Wire.begin();
   SPI.begin();
 

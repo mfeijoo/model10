@@ -116,7 +116,7 @@ number_of_channels = 2
 
 arrmultip = np.array([1,
                       1/1000000,
-                      1,
+                      1/16,
                       0.1875/1000,
                       0.1875*16.4372/1000,
                       0.1875*-4.6887/1000,
@@ -181,55 +181,34 @@ def cleanpulses(arr, maxvalueatnolight):
 
 
 def receiver():
+    global da
     da = b''
-    count = 0
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-    ser = serial.Serial(device, 57600, xonxoff=False, timeout=3)
-    ser.reset_input_buffer()
+    ser = serial.Serial(device, 115200, xonxoff=False, timeout=3)
     ser.reset_output_buffer()
     ser.write(b't') #restart counting
+    ser.reset_input_buffer()
 
     while not(stop_thread):
         if ser.in_waiting:
             inbytes = ser.read(ser.in_waiting)
-            print (count)
             da += inbytes
-            count += 1
-            '''count = int.from_bytes(inbytes[:4], 'big')
-            inbytes = ser.read(22)
             print(ser.in_waiting)
-            #line = ser.readline()
-            count = int.from_bytes(inbytes[:4], 'big')
-            mytime = int.from_bytes(inbytes[4:8], 'big')
-            temp = int.from_bytes(inbytes[8:10], 'big')
-            v5 = int.from_bytes(inbytes[10:12], 'big')
-            PS = int.from_bytes(inbytes[12:14], 'big')
-            vminus15 = int.from_bytes(inbytes[14:16], 'big')
-            vref = int.from_bytes(inbytes[16:18], 'big')
-            lmeas = [int.from_bytes(inbytes[18+2*i:20+2*i], 'big') for i in range(number_of_channels)]
-            
-            la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
-            #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])'''
-            #da = np.append(da, atoadd, axis=0)
 
-            '''print (count,
-                   mytime,
-                   (temp & 0xFFF)/16,
-                   '%.4f' %(v5 * 0.1875/1000),
-                   '%.4f' %(PS * 0.1875*16.4372/1000),
-                   '%.4f' %(vminus15 * 0.1875*-4.6887/1000),
-                   '%.4f' %(vref * 0.1875/1000),
-                   '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
-                   '%.4f' %(lmeas[1] * -24.576/65535 + 12.288))'''
+    ser.close()
+    aa = np.ndarray((len(da)//22,22), np.uint8, da)
+    ac = np.column_stack((aa[:,[0,4]] * 2**24 + aa[:,[1,5]] * 2**16 + aa[:,[2,6]] * 2**8 + aa[:,[3,7]],
+                          2**8 + aa[:,9],
+                          aa[:,10::2] * 2**8 + aa[:,11::2]))
+    av = ac * arrmultip + arrsum
+    df = pd.DataFrame(av, columns=['counts', 'time', 'temp', 'v5V', 'PS', 'minus15V', 'vref'] + ['ch%sv' %i for i in range(number_of_channels)])
+    df.to_csv('rawdata/default.csv')
+    df['countsdiff'] = df.counts.diff()-1
+    number_of_measurements_lost = df.loc[df.time>15, 'countsdiff'].sum()
+    percent_of_measurements_lost = number_of_measurements_lost / len(df) * 100
+    print('Number of measurements lost:', number_of_measurements_lost)
+    print ('Percentage of measurements lost: %.3f' %percent_of_measurements_lost)
 
-    #ser.close()
-    #df = pd.DataFrame(la, columns=['counts', 'time', 'ctemp', 'c5V', 'cPS', 'cminus15V', 'cref'] + ['ch%sc' %i for i in range(number_of_channels)])
-    #df.to_csv('rawdata/default.csv')
-    aall = np.ndarray((len(da)//22,22), np.int8, da)
-    np.savetxt('rawdata/default.csv', aall, delimiter=',')
-    print (aall[-1])
-    print ('shape', aall.shape)
-    
 
 #emulator
 '''def sender():
@@ -238,7 +217,7 @@ def receiver():
     myfile = open('rawdata/emulatormeasurmentslong.csv')
     lines = myfile.readlines()
     myfile.close()
-    serial_sender = Serial('/dev/pts/2', 57600, timeout=1)
+    serial_sender = Serial('/dev/pts/2', 115200, timeout=1)
     time_start = time.time()
     
     for line in lines:
@@ -314,7 +293,7 @@ class MainApp(MDApp):
     def beforemeasuring(self):
         labefore = []
         device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-        serbefore = serial.Serial(device, 57600, timeout=1)
+        serbefore = serial.Serial(device, 115200, timeout=1)
         serbefore.reset_input_buffer()
         serbefore.reset_output_buffer()
         serbefore.write(b't')
@@ -403,7 +382,7 @@ class MainApp(MDApp):
         self.receiver_thread = Thread(target=receiver)
         self.receiver_thread.daemon = True
         self.receiver_thread.start()
-        time.sleep(0.5)
+        time.sleep(1)
         
             
         self.plotpulses = self.contentsheet.ids.mypulsescheckbox.active
@@ -415,15 +394,15 @@ class MainApp(MDApp):
             self.graphchs.ymin = -10
             self.graphchs.ymax = 1000
             self.acum = np.zeros((1, 7+number_of_channels))
-            #self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
+            self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
             self.graphchs.ymin = -12
             self.graphchs.ymax = 12
             self.plotcounter = 0
-            #self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
+            self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
 
         #emulator
-        #self.ser = Serial('/dev/pts/5', 57600, timeout=1)
+        #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
 
 
     def stop(self):
@@ -438,7 +417,7 @@ class MainApp(MDApp):
         stop_thread = True
         #self.sender_thread.join()
         
-        #Clock.unschedule(self.event1)
+        Clock.unschedule(self.event1)
     
         #emulator
         #print('sender_thread kiled')
@@ -452,46 +431,53 @@ class MainApp(MDApp):
         
 
     def updategraphs(self, dt):
-        an = np.array(la[-300:])
-        tempnow = ((an[:,2] & 0xFFF) / 16).mean()
-        anv = an * arrmultip + arrsum
+        aa = np.ndarray((len(da)//22,22), np.uint8, da)
+        ac = np.column_stack((aa[:,[0,4]] * 2**24 + aa[:,[1,5]] * 2**16 + aa[:,[2,6]] * 2**8 + aa[:,[3,7]],
+                          2**8 + aa[:,9],
+                          aa[:,10::2] * 2**8 + aa[:,11::2]))
+        av = (ac * arrmultip + arrsum)[-429:]
         if self.contentsheet.ids.mycleanpulses.active:
-            anv = cleanpulses(anv, self.maxvalueatnolight)
-        countnow = anv[0,0]
-        tnow = anv[0,1]
-        datacum = anv[:,7:].sum(axis=0)
-        voltcum = anv[:,3:7].mean(axis=0)
+            av = cleanpulses(av, self.maxvalueatnolight)
+        countnow = av[0,0]
+        tempnow = av[0,2]
+        tnow = av[0,1]
+        datacum = av[:,7:].sum(axis=0)
+        voltcum = av[:,3:7].mean(axis=0)
         datatoadd = np.hstack((countnow, tnow, tempnow, voltcum, datacum))
         self.acum = np.vstack((self.acum, datatoadd))
+        self.acumtosend = self.acum[1:]
         if tnow > 60:
+            self.acumtosend = self.acum[1::2]
             for graph in self.allgraphs:
-                graph.xmax = float(tnow) 
-        self.tempplot.points = self.acum[1:, [1,2]]
-        self.v5Vplot.points = self.acum[1:, [1,3]]
-        self.PSplot.points = self.acum[1:, [1,4]]
-        self.minus15Vplot.points = self.acum[1:, [1,5]]
-        self.refVplot.points = self.acum[1:, [1,6]]
+                graph.xmax = float(tnow)
+
+        self.tempplot.points = self.acumtosend[:, [1,2]]
+        self.v5Vplot.points = self.acumtosend[:, [1,3]]
+        self.PSplot.points = self.acumtosend[:, [1,4]]
+        self.minus15Vplot.points = self.acumtosend[:, [1,5]]
+        self.refVplot.points = self.acumtosend[:, [1,6]]
         for i in range(number_of_channels):
-            self.lchplots[i].points = self.acum[1:,[1,7+i]]
+            self.lchplots[i].points = self.acumtosend[:,[1,7+i]]
 
     def updategraphpulses(self, dt):
-        an = np.array(la[-300:])
-        anv = an * arrmultip + arrsum
+        aa = np.ndarray((len(da)//22,22), np.uint8, da)
+        ac = np.column_stack((aa[:,[0,4]] * 2**24 + aa[:,[1,5]] * 2**16 + aa[:,[2,6]] * 2**8 + aa[:,[3,7]],
+                          2**8 + aa[:,9],
+                          aa[:,10::2] * 2**8 + aa[:,11::2]))
+        av = (ac * arrmultip + arrsum)[-429:]
         if self.contentsheet.ids.mycleanpulses.active:
-            anv = cleanpulses(anv, self.maxvalueatnolight)
+            av = cleanpulses(av, self.maxvalueatnolight)
         for graph in self.allgraphs:
-            graph.xmin = float(anv[0,1])
-            graph.xmax = float(anv[-1,1])
-        self.tempplot.points = (an[:, [1,2]] & 0xFFF) / 16
-        self.v5Vplot.points = anv[:, [1,3]]
-        self.PSplot.points = anv[:, [1,4]]
-        self.minus15Vplot.points = anv[:, [1,5]]
-        self.refVplot.points = anv[:, [1,6]]
+            graph.xmin = float(av[0,1])
+            graph.xmax = float(av[-1,1])
+        self.tempplot.points = av[:, [1,2]]
+        self.v5Vplot.points = av[:, [1,3]]
+        self.PSplot.points = av[:, [1,4]]
+        self.minus15Vplot.points = av[:, [1,5]]
+        self.refVplot.points = av[:, [1,6]]
         for i in range(number_of_channels):
-            self.lchplots[i].points = anv[:,[1,7+i]]
-        #print ('Last measurement: ', anv[-1,:].round(3))
-        print('PS =',anv[:,4].mean().round(3), 'V')
-        #print ('max value at no light: ', self.maxvalueatnolight)
+            self.lchplots[i].points = av[:,[1,7+i]]
+
 
     def bottomsheet(self):
         self.custom_sheet = MDCustomBottomSheet(screen=self.contentsheet,
@@ -522,7 +508,7 @@ class MainApp(MDApp):
     def onofflevel(self, intext, switch):
         print ('Rango:', intext[-1])
         device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
-        ser = serial.Serial(device, 57600, timeout=1)
+        ser = serial.Serial(device, 115200, timeout=1)
         ser.write(('c%s,' %intext[-1]).encode())
         ser.close()
 
