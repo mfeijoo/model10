@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import os
-os.environ["KCFG_KIVY_LOG_LEVEL"] = 'error'
+#import os
+#os.environ["KCFG_KIVY_LOG_LEVEL"] = 'error'
 from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 from kivymd.app import MDApp
@@ -43,7 +43,7 @@ class MyGraph(Graph):
             self.origx = touch.x
             self.origy = touch.y
             (self.xminnow, self.ymaxnow) = self.to_data(touch.x, touch.y)
-            print(self.to_data(self.origx, self.origy))
+            #print(self.to_data(self.origx, self.origy))
             
             with self.canvas:
                 Color(1,0,0,0.5)
@@ -92,8 +92,8 @@ class MyGraph(Graph):
                 self.ymin = self.yminnow
                 self.ymax = self.ymaxnow
                 self.canvas.remove(self.rect)
-                print(self.xmaxnow, self.yminnow)
-                print ('xmin, xmax, ymin, ymax', self.xmin, self.xmax, self.ymin, self.ymax)
+                #print(self.xmaxnow, self.yminnow)
+                #print ('xmin, xmax, ymin, ymax', self.xmin, self.xmax, self.ymin, self.ymax)
             touch.ungrab(self)
             return True
 
@@ -180,8 +180,8 @@ def cleanpulses(arr, maxvalueatnolight):
 
 
 def receiver():
-    global la
-    la = []
+    da = b''
+    count = 0
     device = list(serial.tools.list_ports.grep('Adafruit ItsyBitsy M4'))[0].device
     ser = serial.Serial(device, 115200, timeout=1)
     ser.reset_input_buffer()
@@ -190,9 +190,11 @@ def receiver():
 
     while not(stop_thread):
         if ser.in_waiting:
-            inbytes = ser.read(22)
-            #line = ser.readline()
-            count = int.from_bytes(inbytes[:4], 'big')
+            inbytes = ser.read(ser.in_waiting)
+            print (count)
+            da += inbytes
+            count += 1
+            '''count = int.from_bytes(inbytes[:4], 'big')
             mytime = int.from_bytes(inbytes[4:8], 'big')
             temp = int.from_bytes(inbytes[8:10], 'big')
             v5 = int.from_bytes(inbytes[10:12], 'big')
@@ -202,7 +204,7 @@ def receiver():
             lmeas = [int.from_bytes(inbytes[18+2*i:20+2*i], 'big') for i in range(number_of_channels)]
             
             la.append([count, mytime, temp, v5, PS, vminus15, vref] + lmeas)
-            #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])
+            #atoadd = np.array([[count, mytime, temp, v5, PS, vminus15, vref] + lmeas])'''
             #da = np.append(da, atoadd, axis=0)
         
         
@@ -216,9 +218,14 @@ def receiver():
                    '%.4f' %(lmeas[0] * -24.576/65535 + 12.288),
                    '%.4f' %(lmeas[1] * -24.576/65535 + 12.288))'''
 
-    ser.close()
-    df = pd.DataFrame(la, columns=['counts', 'time', 'ctemp', 'c5V', 'cPS', 'cminus15V', 'cref'] + ['ch%sc' %i for i in range(number_of_channels)])
-    df.to_csv('rawdata/default.csv')
+    #ser.close()
+    #df = pd.DataFrame(la, columns=['counts', 'time', 'ctemp', 'c5V', 'cPS', 'cminus15V', 'cref'] + ['ch%sc' %i for i in range(number_of_channels)])
+    #df.to_csv('rawdata/default.csv')
+    aall = np.ndarray((len(da)//22,22), np.int8, da)
+    np.savetxt('rawdata/default.csv', aall, delimiter=',')
+    print (aall[-1])
+    print ('shape', aall.shape)
+    
 
 #emulator
 '''def sender():
@@ -400,12 +407,12 @@ class MainApp(MDApp):
             self.graphchs.ymin = -10
             self.graphchs.ymax = 1200
             self.acum = np.zeros((1, 7+number_of_channels))
-            self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
+            #self.event1 = Clock.schedule_interval(self.updategraphs, 0.3)
         else:
             self.graphchs.ymin = -12
             self.graphchs.ymax = 12
             self.plotcounter = 0
-            self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
+            #self.event1 = Clock.schedule_interval(self.updategraphpulses, 0.3)
 
         #emulator
         #self.ser = Serial('/dev/pts/5', 115200, timeout=1)
@@ -423,7 +430,7 @@ class MainApp(MDApp):
         stop_thread = True
         #self.sender_thread.join()
         
-        Clock.unschedule(self.event1)
+        #Clock.unschedule(self.event1)
     
         #emulator
         #print('sender_thread kiled')
